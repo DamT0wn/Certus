@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --certus-bg: #FAF9F6;
+    --certus-surface: #FFFFFF;
+    --certus-ink: #14171F;
+    --certus-secondary: #525866;
+    --certus-muted: #868C98;
+    --certus-border: #E4E1D8;
+    --certus-border-subtle: #EDEAE2;
+    
+    /* Brand Navy */
+    --certus-navy: #1B2A4A;
+    --certus-navy-dark: #111B30;
+    --certus-navy-light: #F0F3F8;
+    
+    /* Signature Brass / Gold */
+    --certus-brass: #B08D57;
+    --certus-brass-dark: #91703E;
+    --certus-brass-light: #F8F4EC;
+    --certus-brass-border: #E5D7BF;
+    
+    /* Institutional Desaturated Evidence Statuses */
+    --certus-forest: #2F5233;
+    --certus-forest-bg: #F2F6F3;
+    --certus-forest-border: #C2D6C6;
+    
+    --certus-law: #1F3B23;
+    --certus-law-bg: #EEF4EF;
+    --certus-law-border: #B4CEBA;
+    
+    --certus-ochre: #8A6D3B;
+    --certus-ochre-bg: #FBF7F0;
+    --certus-ochre-border: #E5D5B8;
+    
+    --certus-brick: #8C3A3A;
+    --certus-brick-bg: #F9F1F1;
+    --certus-brick-border: #E4C3C3;
+  }
+
+  body {
+    font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--certus-ink);
+    background-color: var(--certus-bg);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+/* Typography Utility Classes */
+.font-serif-display {
+  font-family: 'Fraunces', 'Source Serif 4', Georgia, serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.font-serif-legal {
+  font-family: 'Source Serif 4', Georgia, Cambria, serif;
+}
+
+.font-sans-ui {
+  font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'tnum' 1;
+}
+
+.font-mono-legal {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Editorial subtle scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #D8D4C8;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #B08D57;
+}
+
+/* Legal Canvas Texture: Subdued dot-grid (<3% contrast) */
+.legal-canvas-pattern {
+  background-color: #FAF9F6;
+  background-image: radial-gradient(#D5D0C2 0.75px, transparent 0.75px);
+  background-size: 20px 20px;
+}
+
+.legal-document-sheet {
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(20, 23, 31, 0.04), 0 8px 24px -4px rgba(20, 23, 31, 0.05);
+  border: 1px solid #E4E1D8;
+  border-radius: 6px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Editorial Highlighter-on-Paper Citation Overlays (Subtle, no candy glow) */
+.citation-highlight-fact {
+  background-color: rgba(47, 82, 51, 0.09);
+  border-bottom: 1.5px solid #2F5233;
+  color: #1F3B23;
+  padding: 1px 3px;
+  border-radius: 2px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.citation-highlight-fact.active {
+  background-color: rgba(47, 82, 51, 0.18);
+  border-bottom: 2px solid #1F3B23;
+  box-shadow: 0 0 0 1px rgba(47, 82, 51, 0.15);
+}
+
+.citation-highlight-law {
+  background-color: rgba(31, 59, 35, 0.09);
+  border-bottom: 1.5px solid #1F3B23;
+  color: #142817;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+.citation-highlight-law.active {
+  background-color: rgba(31, 59, 35, 0.18);
+  border-bottom: 2px solid #142817;
+  box-shadow: 0 0 0 1px rgba(31, 59, 35, 0.15);
+}
+
+.citation-highlight-inference {
+  background-color: rgba(138, 109, 59, 0.1);
+  border-bottom: 1.5px solid #8A6D3B;
+  color: #5C4724;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+.citation-highlight-inference.active {
+  background-color: rgba(138, 109, 59, 0.2);
+  border-bottom: 2px solid #735A2F;
+  box-shadow: 0 0 0 1px rgba(138, 109, 59, 0.15);
+}
+
+.citation-highlight-unverified {
+  background-color: rgba(140, 58, 58, 0.08);
+  border-bottom: 1.5px dashed #8C3A3A;
+  color: #612424;
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+.citation-highlight-unverified.active {
+  background-color: rgba(140, 58, 58, 0.18);
+  border-bottom: 2px solid #8C3A3A;
+  box-shadow: 0 0 0 1px rgba(140, 58, 58, 0.15);
+}
+
+/* Superscript Brass Footnote Marker */
+.citation-superscript-marker {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #B08D57;
+  vertical-align: super;
+  padding: 0 2px;
+  letter-spacing: -0.02em;
+}
+
+/* Hairline rule */
+.hairline-b {
+  border-bottom: 1px solid #E4E1D8;
+}
+.hairline-r {
+  border-right: 1px solid #E4E1D8;
+}
+.hairline-t {
+  border-top: 1px solid #E4E1D8;
+}
+.hairline-l {
+  border-left: 1px solid #E4E1D8;
+}
+
+/* Subtle transitions */
+.transition-certus {
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes subtleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-subtle-fade {
+  animation: subtleFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Print Rules for Typeset Legal Memorandum */
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .legal-document-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+}
