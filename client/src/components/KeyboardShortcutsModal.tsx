@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X, Keyboard } from "lucide-react";
 
 interface KeyboardShortcutsModalProps {
@@ -6,6 +7,27 @@ interface KeyboardShortcutsModalProps {
 }
 
 export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "Tab") {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
+        if (!focusable?.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const shortcuts = [
@@ -18,17 +40,24 @@ export function KeyboardShortcutsModal({ isOpen, onClose }: KeyboardShortcutsMod
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs select-none">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs select-none"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-title"
         className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 p-6 animate-subtle-fade"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
           <div className="flex items-center gap-2">
             <Keyboard className="w-5 h-5 text-indigo-700" />
-            <h3 className="font-bold text-slate-900 text-sm">Keyboard Shortcuts</h3>
+            <h2 id="keyboard-shortcuts-title" className="font-bold text-slate-900 text-sm">Keyboard Shortcuts</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+          <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Close keyboard shortcuts" className="p-1 text-slate-400 hover:text-slate-600 rounded">
             <X className="w-4 h-4" />
           </button>
         </div>

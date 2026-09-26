@@ -79,8 +79,7 @@ button:disabled { cursor: wait; opacity: .55; }
   .legal-document-sheet > :first-child { flex-wrap: wrap; gap: .5rem; }
   .memo-sheet { padding: 1.25rem; }
   .memo-sheet .justify-between { flex-wrap: wrap; gap: .5rem; }
-  .intake-footer, .sample-row, .auth-form { flex-direction: column; align-items: stretch; gap: .75rem; }
-  .auth-form input { width: 100%; min-width: 0; }
+  .intake-footer, .sample-row { flex-direction: column; align-items: stretch; gap: .75rem; }
 }
 
 /* Typography Utility Classes */

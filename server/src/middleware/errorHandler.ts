@@ -17,19 +17,18 @@ export function errorHandler(
     ? externalFailure(err, "AI service")
     : null;
   const statusCode = err.code === "LIMIT_FILE_SIZE" ? 413 : upstream?.status || err.statusCode || 500;
-  const isProd = process.env.NODE_ENV === "production";
-
   console.error(`[certus error] ${err.name || "Error"}: ${err.message}`, {
     statusCode,
     code: err.code,
     detail: err.detail,
-    stack: isProd ? undefined : err.stack,
+    stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
   });
 
   return res.status(statusCode).json({
-    error: err.code === "LIMIT_FILE_SIZE" ? "PDF exceeds the 50 MB limit" : upstream?.message || (isProd && statusCode >= 500 ? "The service could not complete this request. Please retry." : err.message || "An unexpected error occurred"),
+    error: err.code === "LIMIT_FILE_SIZE"
+      ? "PDF exceeds the 50 MB limit"
+      : upstream?.message || (statusCode >= 500 ? "The service could not complete this request. Please retry." : err.message || "The request could not be completed"),
     code: err.code || upstream?.code || "INTERNAL_ERROR",
-    detail: err.detail || undefined,
     timestamp: new Date().toISOString(),
   });
 }

@@ -13,25 +13,10 @@ export const PROOF_LABELS: ProofLabel[] = [
   "UNVERIFIED",
 ];
 
-/** ---------- User ---------- */
-export interface IUser extends MongoDocument {
-  email: string;
-  passwordHash: string;
-  createdAt: Date;
-}
-
-const userSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  passwordHash: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-});
-
-export const User = mongoose.model<IUser>("User", userSchema);
-
 /** ---------- Document ---------- */
 export interface ILegalDocument extends MongoDocument {
   mode: "mock" | "live";
-  ownerId: Types.ObjectId;
+  sessionId: Types.ObjectId;
   filename: string;
   mimeType: string;
   ocrText: string;
@@ -42,7 +27,7 @@ export interface ILegalDocument extends MongoDocument {
 
 const legalDocumentSchema = new Schema<ILegalDocument>({
   mode: { type: String, enum: ["mock", "live"], default: "mock" },
-  ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  sessionId: { type: Schema.Types.ObjectId, required: true },
   filename: { type: String, required: true },
   mimeType: { type: String, required: true },
   ocrText: { type: String, default: "" },
@@ -60,7 +45,7 @@ const legalDocumentSchema = new Schema<ILegalDocument>({
   uploadedAt: { type: Date, default: Date.now },
 });
 
-legalDocumentSchema.index({ ownerId: 1, uploadedAt: -1 });
+legalDocumentSchema.index({ sessionId: 1, uploadedAt: -1 });
 
 export const LegalDocument = mongoose.model<ILegalDocument>(
   "LegalDocument",
@@ -166,10 +151,38 @@ export const ChatSession = mongoose.model<IChatSession>(
   chatSessionSchema
 );
 
+/** ---------- ScenarioRun (included in lawyer-ready briefs) ---------- */
+export interface IScenarioRun extends MongoDocument {
+  documentId: Types.ObjectId;
+  prompt: string;
+  claims: Array<{
+    text: string;
+    label: ProofLabel;
+    sourcePage: number | null;
+    sourceText: string | null;
+  }>;
+  createdAt: Date;
+}
+
+const scenarioRunSchema = new Schema<IScenarioRun>({
+  documentId: { type: Schema.Types.ObjectId, ref: "LegalDocument", required: true },
+  prompt: { type: String, required: true, maxlength: 2000 },
+  claims: [{
+    text: String,
+    label: { type: String, enum: PROOF_LABELS },
+    sourcePage: Number,
+    sourceText: String,
+  }],
+  createdAt: { type: Date, default: Date.now },
+});
+
+scenarioRunSchema.index({ documentId: 1, createdAt: -1 });
+export const ScenarioRun = mongoose.model<IScenarioRun>("ScenarioRun", scenarioRunSchema);
+
 /** ---------- AuditLog (FR-2.6 & NFR-4) ---------- */
 export interface IAuditLog extends MongoDocument {
   documentId: Types.ObjectId;
-  userId?: Types.ObjectId;
+  sessionId?: Types.ObjectId;
   action: "extract" | "chat" | "whatif";
   promptHash: string;
   responseHash: string;
@@ -181,7 +194,7 @@ export interface IAuditLog extends MongoDocument {
 
 const auditLogSchema = new Schema<IAuditLog>({
   documentId: { type: Schema.Types.ObjectId, ref: "LegalDocument", required: true },
-  userId: { type: Schema.Types.ObjectId, ref: "User" },
+  sessionId: { type: Schema.Types.ObjectId },
   action: { type: String, enum: ["extract", "chat", "whatif"], required: true },
   promptHash: { type: String, required: true },
   responseHash: { type: String, required: true },

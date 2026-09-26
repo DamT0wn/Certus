@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType, type Schema } from "@google/generative-ai";
 import { verifyCitation } from "./verifyCitation";
 import { ProofLabel } from "../models";
 import {
@@ -26,7 +26,7 @@ function withTimeout<T>(operation: Promise<T>, milliseconds: number, label: stri
 }
 
 /** Every claim Gemini returns must match this exact shape. */
-const claimSchema = {
+const claimSchema: Schema = {
   type: SchemaType.OBJECT,
   properties: {
     claims: {
@@ -76,7 +76,7 @@ async function callGeminiStructured(prompt: string): Promise<RawClaim[]> {
     model: MODEL_NAME,
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: claimSchema as any,
+      responseSchema: claimSchema,
     },
   });
 

@@ -10,6 +10,16 @@ interface CommandPaletteProps {
   onSelectAction?: (actionId: string) => void;
 }
 
+const SYSTEM_ACTIONS = [
+  { id: "generate_brief", label: "Generate Lawyer-Ready Brief", icon: FileText, category: "Actions" },
+  { id: "scenario_breach", label: "Run Breach of Contract Scenario", icon: Zap, category: "Scenario" },
+  { id: "scenario_termination", label: "Run Early Termination Scenario", icon: Zap, category: "Scenario" },
+  { id: "scenario_jurisdiction", label: "Run Jurisdiction Challenge Scenario", icon: Zap, category: "Scenario" },
+  { id: "jump_p1", label: "Jump to Document Page 1 (Compensation)", icon: ArrowRight, category: "Navigation" },
+  { id: "jump_p2", label: "Jump to Document Page 2 (Restrictive Covenants)", icon: ArrowRight, category: "Navigation" },
+  { id: "jump_p3", label: "Jump to Document Page 3 (Termination & Law)", icon: ArrowRight, category: "Navigation" },
+];
+
 export function CommandPalette({
   isOpen,
   onClose,
@@ -20,6 +30,7 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,6 +47,14 @@ export function CommandPalette({
       if (isOpen && e.key === "Escape") {
         onClose();
       }
+      if (isOpen && e.key === "Tab") {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])');
+        if (!focusable?.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -43,18 +62,8 @@ export function CommandPalette({
 
   if (!isOpen) return null;
 
-  // Actions list
-  const systemActions = [
-    { id: "generate_brief", label: "Generate Lawyer-Ready Brief", icon: FileText, category: "Actions" },
-    { id: "scenario_resignation", label: "Probe Early Resignation Scenario", icon: Zap, category: "Scenario" },
-    { id: "scenario_breach", label: "Probe Key Clause Breach Scenario", icon: Zap, category: "Scenario" },
-    { id: "jump_p1", label: "Jump to Document Page 1 (Compensation)", icon: ArrowRight, category: "Navigation" },
-    { id: "jump_p2", label: "Jump to Document Page 2 (Restrictive Covenants)", icon: ArrowRight, category: "Navigation" },
-    { id: "jump_p3", label: "Jump to Document Page 3 (Termination & Law)", icon: ArrowRight, category: "Navigation" },
-  ];
-
   // Filter actions and claims
-  const filteredActions = systemActions.filter((a) =>
+  const filteredActions = SYSTEM_ACTIONS.filter((a) =>
     a.label.toLowerCase().includes(query.toLowerCase())
   );
 
@@ -67,17 +76,26 @@ export function CommandPalette({
   const totalItems = [...filteredActions, ...filteredClaims];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-slate-900/40 backdrop-blur-xs select-none">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-slate-900/40 backdrop-blur-xs select-none"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-palette-title"
         className="w-full max-w-xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-subtle-fade"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
         <div className="flex items-center px-4 py-3 border-b border-slate-200">
           <Search className="w-4 h-4 text-slate-400 mr-3 shrink-0" />
+          <span id="command-palette-title" className="sr-only">Search claims and commands</span>
           <input
             ref={inputRef}
             type="text"
+            aria-label="Search claims and commands"
             placeholder="Search claims, document passages, or run actions... (Esc to close)"
             value={query}
             onChange={(e) => {
@@ -105,7 +123,7 @@ export function CommandPalette({
             }}
             className="flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden font-sans-ui"
           />
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+          <button type="button" onClick={onClose} aria-label="Close command palette" className="p-1 text-slate-400 hover:text-slate-600 rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -122,13 +140,14 @@ export function CommandPalette({
                 const isSelected = selectedIndex === idx;
                 const Icon = action.icon;
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={action.id}
                     onClick={() => {
                       onSelectAction?.(action.id);
                       onClose();
                     }}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs transition ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs transition ${
                       isSelected ? "bg-indigo-50 text-indigo-900 font-medium" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -139,7 +158,7 @@ export function CommandPalette({
                     <span className="text-[10px] text-slate-400 uppercase tracking-wider">
                       {action.category}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -155,13 +174,14 @@ export function CommandPalette({
                 const itemIdx = filteredActions.length + idx;
                 const isSelected = selectedIndex === itemIdx;
                 return (
-                  <div
-                    key={idx}
+                  <button
+                    type="button"
+                    key={`${claim.sourcePage ?? 0}:${claim.label}:${claim.text}`}
                     onClick={() => {
                       onSelectClaim?.(claim);
                       onClose();
                     }}
-                    className={`p-2.5 rounded-lg cursor-pointer text-xs transition ${
+                    className={`w-full text-left p-2.5 rounded-lg cursor-pointer text-xs transition ${
                       isSelected ? "bg-indigo-50 text-indigo-900" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -181,7 +201,7 @@ export function CommandPalette({
                         "{claim.sourceText}"
                       </p>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>

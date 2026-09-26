@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import { memo, type MouseEvent } from "react";
 import type { Claim } from "../api/client";
 import { ProofBadge } from "./ProofLabelChip";
 import { ProofChain } from "./ProofChain";
@@ -7,12 +7,12 @@ import { ArrowUpRight, ShieldCheck, AlertCircle } from "lucide-react";
 interface ClaimCardProps {
   claim: Claim;
   isSelected?: boolean;
-  onSelect?: () => void;
+  onSelect?: (claim: Claim) => void;
   onCitationClick?: (page: number, text?: string) => void;
   showProofChain?: boolean;
 }
 
-export function ClaimCard({
+export const ClaimCard = memo(function ClaimCard({
   claim,
   isSelected = false,
   onSelect,
@@ -30,9 +30,8 @@ export function ClaimCard({
   };
 
   return (
-    <div
-      onClick={onSelect}
-      className={`group relative rounded-[6px] transition-certus border cursor-pointer ${
+    <article
+      className={`group relative rounded-[6px] transition-certus border ${
         isSelected
           ? "bg-[#FFFFFF] border-[#1B2A4A] shadow-xs"
           : "bg-[#FFFFFF] border-[#E4E1D8] hover:border-[#B08D57]/70"
@@ -72,6 +71,17 @@ export function ClaimCard({
           )}
         </div>
 
+        <div className="flex items-center gap-1.5">
+        {onSelect && (
+          <button
+            type="button"
+            onClick={() => onSelect(claim)}
+            aria-pressed={isSelected}
+            className="text-[10px] font-mono-legal text-[#525866] hover:text-[#14171F] px-1.5 py-0.5 rounded-[3px]"
+          >
+            {isSelected ? "Focused" : "Focus claim"}
+          </button>
+        )}
         {claim.sourcePage ? (
           <button
             type="button"
@@ -85,6 +95,7 @@ export function ClaimCard({
         ) : (
           <span className="text-[10px] font-mono-legal text-[#868C98]">Doctrine</span>
         )}
+        </div>
       </div>
 
       {/* Claim Body Text */}
@@ -117,6 +128,6 @@ export function ClaimCard({
 
       {/* Signature Proof Chain Expandable */}
       {showProofChain && <ProofChain claim={claim} defaultExpanded={false} />}
-    </div>
+    </article>
   );
-}
+});

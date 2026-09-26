@@ -12,9 +12,9 @@ interface IssueScenario {
 }
 
 const PRECONFIGURED_ISSUES: IssueScenario[] = [
- { id: "exit", num: "01", label: "Early exit", prompt: "What would happen if a party exits this agreement early? Identify only consequences supported by this document." },
- { id: "breach", num: "02", label: "Material breach", prompt: "What would happen if a party breaches a material obligation? Identify notice and cure requirements in this document." },
- { id: "deadline", num: "03", label: "Missed deadline", prompt: "What would happen if a contractual deadline is missed? State if the document does not specify consequences." },
+ { id: "SCENARIO_BREACH", num: "01", label: "Breach of Contract", prompt: "Re-run extraction for a breach of contract, highlighting obligation clauses, penalty triggers, and cure periods supported by this document." },
+ { id: "SCENARIO_TERMINATION", num: "02", label: "Early Termination", prompt: "Re-run extraction for early termination, focusing on termination rights, notice requirements, and exit fees supported by this document." },
+ { id: "SCENARIO_JURISDICTION", num: "03", label: "Jurisdiction Challenge", prompt: "Re-run extraction for a jurisdiction challenge, surfacing governing law, venue, and arbitration clauses supported by this document." },
 ];
 
 const SUGGESTED_PROMPTS = [
@@ -204,6 +204,7 @@ export function ProofIntelligencePanel({
         >
           <input
             type="text"
+            aria-label="Ask a question about this document"
             placeholder="Ask Certus or probe a legal clause..."
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
@@ -219,6 +220,7 @@ export function ProofIntelligencePanel({
               disabled={loading || !inputVal.trim()}
               className="bg-[#1B2A4A] hover:bg-[#111B30] disabled:opacity-30 text-white p-1.5 rounded-[4px] transition-certus shadow-2xs shrink-0"
               title="Submit Inquiry"
+              aria-label="Submit inquiry"
             >
               <Send className="w-3.5 h-3.5" />
             </button>

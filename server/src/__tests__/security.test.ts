@@ -1,6 +1,8 @@
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
-import { User, LegalDocument, ChatSession } from "../models";
+import type { Request, Response } from "express";
+import { LegalDocument, ChatSession } from "../models";
+import type { DemoSessionRequest } from "../middleware/demoSession";
 import {
   validateUploadedPdf,
   sanitizeFilename,
@@ -8,6 +10,7 @@ import {
 } from "../middleware/security";
 import { getDocument, whatIf } from "../controllers/documentController";
 import { getChatHistory } from "../controllers/chatController";
+import { errorHandler, type AppError } from "../middleware/errorHandler";
 
 let mongod: MongoMemoryServer;
 
@@ -22,23 +25,27 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await User.deleteMany({});
   await LegalDocument.deleteMany({});
   await ChatSession.deleteMany({});
 });
 
 function mockRes() {
-  const res: any = {};
-  res.statusCode = 200;
-  res.headers = {};
-  res.setHeader = jest.fn((key, val) => {
+  const res: {
+    statusCode: number;
+    headers: Record<string, string>;
+    data: Record<string, unknown>;
+    setHeader: jest.Mock;
+    status: jest.Mock;
+    json: jest.Mock;
+  } = { statusCode: 200, headers: {}, data: {}, setHeader: jest.fn(), status: jest.fn(), json: jest.fn() };
+  res.setHeader.mockImplementation((key: string, val: string) => {
     res.headers[key] = val;
   });
-  res.status = jest.fn((code) => {
+  res.status.mockImplementation((code: number) => {
     res.statusCode = code;
     return res;
   });
-  res.json = jest.fn((data) => {
+  res.json.mockImplementation((data: Record<string, unknown>) => {
     res.data = data;
     return res;
   });
@@ -92,11 +99,11 @@ describe("Security & Robustness Controls", () => {
 
   describe("Security Headers Middleware", () => {
     test("sets essential hardening headers", () => {
-      const req: any = {};
+      const req = {} as DemoSessionRequest;
       const res = mockRes();
       const next = jest.fn();
 
-      securityHeaders(req, res, next);
+      securityHeaders(req, res as unknown as Response, next);
 
       expect(res.setHeader).toHaveBeenCalledWith("X-Content-Type-Options", "nosniff");
       expect(res.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY");
@@ -106,34 +113,51 @@ describe("Security & Robustness Controls", () => {
     });
   });
 
-  describe("Cross-Tenant Data Isolation (IDOR Protection)", () => {
-    test("User A cannot read User B's document", async () => {
-      const userAId = new mongoose.Types.ObjectId();
-      const userBId = new mongoose.Types.ObjectId();
+  describe("Safe API errors", () => {
+    test("does not expose stack traces or internal details for server failures", () => {
+      const res = mockRes();
+      const errorLog = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      const err = Object.assign(new Error("database host private.internal failed"), {
+        detail: "mongodb://user:password@private.internal/certus",
+      }) as AppError;
+
+      errorHandler(err, {} as Request, res as unknown as Response, jest.fn());
+
+      expect(res.statusCode).toBe(500);
+      expect(res.data.error).toBe("The service could not complete this request. Please retry.");
+      expect(res.data).not.toHaveProperty("detail");
+      expect(JSON.stringify(res.data)).not.toContain("private.internal");
+      errorLog.mockRestore();
+    });
+  });
+
+  describe("Cross-Session Data Isolation (IDOR Protection)", () => {
+    test("Session A cannot read Session B's document", async () => {
+      const sessionAId = new mongoose.Types.ObjectId();
+      const sessionBId = new mongoose.Types.ObjectId();
 
       const docB = await LegalDocument.create({
-        ownerId: userBId,
+        sessionId: sessionBId,
         filename: "confidential_deal.pdf",
         mimeType: "application/pdf",
         ocrText: "Top secret acquisition terms.",
       });
 
-      // User A attempts to view User B's document
-      const req: any = { params: { id: docB._id.toString() }, userId: userAId.toString() };
+      const req = { params: { id: docB._id.toString() }, sessionId: sessionAId.toString() } as unknown as DemoSessionRequest;
       const res = mockRes();
 
-      await getDocument(req, res);
+      await getDocument(req, res as unknown as Response);
 
       expect(res.statusCode).toBe(404);
       expect(res.data.error).toMatch(/Document not found/i);
     });
 
-    test("User A cannot read User B's chat history", async () => {
-      const userAId = new mongoose.Types.ObjectId();
-      const userBId = new mongoose.Types.ObjectId();
+    test("Session A cannot read Session B's chat history", async () => {
+      const sessionAId = new mongoose.Types.ObjectId();
+      const sessionBId = new mongoose.Types.ObjectId();
 
       const docB = await LegalDocument.create({
-        ownerId: userBId,
+        sessionId: sessionBId,
         filename: "confidential_chat.pdf",
         mimeType: "application/pdf",
       });
@@ -143,34 +167,33 @@ describe("Security & Robustness Controls", () => {
         messages: [{ role: "user", text: "What is the secret valuation?" }],
       });
 
-      // User A attempts to read User B's chat history
-      const req: any = { params: { documentId: docB._id.toString() }, userId: userAId.toString() };
+      const req = { params: { documentId: docB._id.toString() }, sessionId: sessionAId.toString() } as unknown as DemoSessionRequest;
       const res = mockRes();
 
-      await getChatHistory(req, res);
+      await getChatHistory(req, res as unknown as Response);
 
       expect(res.statusCode).toBe(404);
       expect(res.data.error).toMatch(/Document not found/i);
     });
 
-    test("User A cannot run whatIf scenario on User B's document", async () => {
-      const userAId = new mongoose.Types.ObjectId();
-      const userBId = new mongoose.Types.ObjectId();
+    test("Session A cannot run what-if analysis on Session B's document", async () => {
+      const sessionAId = new mongoose.Types.ObjectId();
+      const sessionBId = new mongoose.Types.ObjectId();
 
       const docB = await LegalDocument.create({
-        ownerId: userBId,
+        sessionId: sessionBId,
         filename: "exclusive_contract.pdf",
         mimeType: "application/pdf",
       });
 
-      const req: any = {
+      const req = {
         params: { id: docB._id.toString() },
         body: { scenarioPrompt: "What if there is a breach?" },
-        userId: userAId.toString(),
-      };
+        sessionId: sessionAId.toString(),
+      } as unknown as DemoSessionRequest;
       const res = mockRes();
 
-      await whatIf(req, res);
+      await whatIf(req, res as unknown as Response);
 
       expect(res.statusCode).toBe(404);
     });

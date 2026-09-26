@@ -1,10 +1,10 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadDocument, extractDocument, register, login, api, apiError } from "../api/client";
+import { uploadDocument, extractDocument, createDemoSession, api, apiError } from "../api/client";
 import { AppHeader } from "../components/AppHeader";
 import { CommandPalette } from "../components/CommandPalette";
 import { KeyboardShortcutsModal } from "../components/KeyboardShortcutsModal";
-import { FileText, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import { FileText, FlaskConical } from "lucide-react";
 
 export function UploadPage() {
   const [busy, setBusy] = useState(false);
@@ -12,15 +12,12 @@ export function UploadPage() {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [dragOver, setDragOver] = useState(false);
 
-  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem("certus_token"));
-  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem("certus_email") || "");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [authError, setAuthError] = useState<string>("");
-  const [showCustomAuth, setShowCustomAuth] = useState(false);
+  const [demoToken, setDemoToken] = useState<string | null>(() => sessionStorage.getItem("certus_demo_token"));
+  const [demoName, setDemoName] = useState<string>(() => sessionStorage.getItem("certus_demo_name") || "");
+  const [sessionError, setSessionError] = useState<string>("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const navigate = useNavigate();
   const [mockMode, setMockMode] = useState(false);
@@ -37,87 +34,42 @@ export function UploadPage() {
     { title: "Extract & Verify Claims", desc: "Check citations against the referenced pages" },
   ];
 
-  async function handleAuthSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleDemoSignIn() {
     setCurrentStepIndex(-1);
-    setAuthError("");
+    setSessionError("");
     setBusy(true);
     try {
-      let token = "";
-      if (authMode === "register") {
-        token = await register(authEmail, authPassword);
-      } else {
-        token = await login(authEmail, authPassword);
-      }
-      localStorage.setItem("certus_token", token);
-      localStorage.setItem("certus_email", authEmail);
-      setAuthToken(token);
-      setUserEmail(authEmail);
-      setShowCustomAuth(false);
+      const session = await createDemoSession();
+      sessionStorage.setItem("certus_demo_token", session.token);
+      sessionStorage.setItem("certus_demo_name", session.displayName);
+      setDemoToken(session.token);
+      setDemoName(session.displayName);
     } catch (err: unknown) {
-      setAuthError(apiError(err));
+      setSessionError(apiError(err));
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleQuickDemoAuth() {
-    setCurrentStepIndex(-1);
-    setAuthError("");
-    setBusy(true);
-    try {
-      const email = `demo_${crypto.randomUUID()}@certus.invalid`;
-      const pwd = crypto.randomUUID();
-      const token = await register(email, pwd);
-      localStorage.setItem("certus_token", token);
-      localStorage.setItem("certus_email", email);
-      setAuthToken(token);
-      setUserEmail(email);
-    } catch (err: unknown) {
-      setAuthError(apiError(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function handleLogout() {
-    localStorage.removeItem("certus_token");
-    localStorage.removeItem("certus_email");
-    setAuthToken(null);
-    setUserEmail("");
-  }
-
-  async function ensureAuthenticated(): Promise<boolean> {
-    if (localStorage.getItem("certus_token")) return true;
-    if (!mockMode) { setShowCustomAuth(true); setAuthError("Sign in or register before uploading a document."); return false; }
-    try {
-      const email = `counsel_${crypto.randomUUID()}@certus.legal`;
-      const token = await register(email, crypto.randomUUID());
-      localStorage.setItem("certus_token", token);
-      localStorage.setItem("certus_email", email);
-      setAuthToken(token);
-      setUserEmail(email);
-      return true;
-    } catch {
-      setAuthError("Could not create a demo session. Please retry.");
-      return false;
-    }
+  function handleEndDemo() {
+    sessionStorage.removeItem("certus_demo_token");
+    sessionStorage.removeItem("certus_demo_name");
+    setDemoToken(null);
+    setDemoName("");
   }
 
   async function handleFile(file: File) {
     if (busy) return;
-    setAuthError("");
+    if (!demoToken) {
+      setSessionError("Start a mock session before uploading a document.");
+      return;
+    }
+    setSessionError("");
     setBusy(true);
     setCurrentStepIndex(0);
     setStatusMessage(`Transmitting "${file.name}"...`);
 
     try {
-      const isAuthed = await ensureAuthenticated();
-      if (!isAuthed) {
-        setBusy(false);
-        return;
-      }
-
       setStatusMessage(mockMode ? "Reading PDF text and indexing pages…" : "Uploading and reading pages via Document AI OCR…");
       const { documentId } = await uploadDocument(file);
 
@@ -142,7 +94,7 @@ export function UploadPage() {
       const response = await fetch("/sample-contract.pdf");
       if (!response.ok) throw new Error("Sample document could not be loaded.");
       await handleFile(new File([await response.blob()], "sample-contract.pdf", { type: "application/pdf" }));
-    } catch (err) { setAuthError(apiError(err)); setBusy(false); }
+    } catch (err) { setSessionError(apiError(err)); setBusy(false); }
   }
 
   return (
@@ -151,10 +103,10 @@ export function UploadPage() {
       <AppHeader
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
-        authToken={authToken}
-        userEmail={userEmail}
-        onLogout={handleLogout}
-        onQuickDemoAuth={mockMode && !busy ? handleQuickDemoAuth : undefined}
+        demoToken={demoToken}
+        demoName={demoName}
+        onEndDemo={handleEndDemo}
+        onStartDemo={!busy ? handleDemoSignIn : undefined}
       />
 
       {/* Main Intake Body */}
@@ -173,15 +125,15 @@ export function UploadPage() {
           </h1>
 
           <p className="text-[#525866] text-sm sm:text-[15px] max-w-xl mx-auto leading-relaxed font-sans-ui">
-            Every material claim is verified against source document text, classified by evidence authority, and gated for attorney audit.
+            Legal AI can sound certain even when its evidence is weak. Certus verifies every material claim against source text, labels its proof status, and sends unsupported statements to attorney review instead of presenting them as fact.
           </p>
         </div>
 
         {/* Refined Document Intake Panel */}
         <div className="max-w-xl mx-auto w-full bg-[#FFFFFF] rounded-[6px] p-6 shadow-xs border border-[#E4E1D8] transition-certus">
-          {authError && <p role="alert" className="mb-4 text-sm text-[var(--certus-brick)]">{authError}</p>}
+          {sessionError && <p role="alert" className="mb-4 text-sm text-[var(--certus-brick)]">{sessionError}</p>}
           {!busy && statusMessage.startsWith("Error:") && <p role="alert" className="mb-4 text-sm text-[var(--certus-brick)]">{statusMessage}</p>}
-          {busy && currentStepIndex < 0 ? <p role="status">Signing in…</p> : busy ? (
+          {busy && currentStepIndex < 0 ? <p role="status">Starting mock session…</p> : busy ? (
             /* Multi-step intelligent progress indicator */
             <div className="py-6 px-4 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#EDEAE2]">
@@ -234,10 +186,38 @@ export function UploadPage() {
                 </div>
               )}
             </div>
+          ) : !demoToken ? (
+            <section aria-labelledby="demo-access-heading" className="text-center py-5 px-3">
+              <div className="w-12 h-12 rounded-[6px] bg-[#1B2A4A] mx-auto flex items-center justify-center mb-3.5 border border-[#2B3E68]">
+                <FlaskConical aria-hidden="true" className="w-6 h-6 text-[#B08D57]" />
+              </div>
+              <h2 id="demo-access-heading" className="font-serif-display font-semibold text-lg text-[#14171F]">
+                Mock sign-in for this demo
+              </h2>
+              <p className="mt-2 mb-4 text-xs leading-relaxed text-[#525866] max-w-sm mx-auto">
+                Authentication is outside this MVP. Start an isolated, temporary browser session—no email, password, or account data required.
+              </p>
+              <button
+                type="button"
+                onClick={handleDemoSignIn}
+                className="text-sm font-semibold bg-[#1B2A4A] hover:bg-[#111B30] text-white px-5 py-2.5 rounded-[6px] transition-certus"
+              >
+                Continue with mock sign-in
+              </button>
+            </section>
           ) : (
             <div>
               {/* Dropzone with solid hairline border & brass seal icon */}
               <label
+                tabIndex={0}
+                role="button"
+                aria-label="Choose a PDF document to analyze"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOver(true);
@@ -250,13 +230,14 @@ export function UploadPage() {
                     handleFile(e.dataTransfer.files[0]);
                   }
                 }}
-                className={`block border rounded-[6px] p-8 text-center cursor-pointer transition-certus ${
+                className={`block border rounded-[6px] p-8 text-center cursor-pointer transition-certus focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[var(--certus-brass-dark)] ${
                   dragOver
                     ? "border-[#B08D57] bg-[#FAF9F6]"
                     : "border-[#E4E1D8] hover:border-[#B08D57] bg-[#FAF9F6]/50 hover:bg-[#FAF9F6]"
                 }`}
               >
                 <input
+                  ref={fileInputRef}
                   type="file"
                   accept="application/pdf"
                   className="hidden"
@@ -265,7 +246,7 @@ export function UploadPage() {
                 
                 {/* Brass Verification Seal Icon */}
                 <div className="w-12 h-12 rounded-[6px] bg-[#1B2A4A] mx-auto flex items-center justify-center mb-3.5 border border-[#2B3E68] shadow-2xs">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-[#B08D57]">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-[#B08D57]">
                     <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.2" strokeDasharray="1.5 2" />
                     <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="1.2" />
                     <path d="M12 8v8M8 12h8" stroke="#FAF9F6" strokeWidth="1.5" strokeLinecap="round" />
@@ -328,7 +309,7 @@ export function UploadPage() {
                 </span>
               </div>
               <p className="text-[11px] text-[#525866] leading-tight font-sans-ui">
-                Authoritative legal canons &amp; doctrine.
+                Independently confirmed legal authority.
               </p>
             </div>
 
@@ -358,63 +339,6 @@ export function UploadPage() {
           </div>
         </div>
 
-        {/* Custom Authentication Accordion */}
-        {!authToken && (
-          <div className="max-w-xl mx-auto w-full mt-6">
-            <button
-              onClick={() => setShowCustomAuth(!showCustomAuth)}
-              className="w-full flex items-center justify-between text-xs text-[#525866] hover:text-[#14171F] p-2 border border-[#E4E1D8] rounded-[6px] bg-[#FFFFFF]/80 hover:bg-[#FFFFFF] transition-certus font-sans-ui"
-            >
-              <div className="flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-[#868C98]" />
-                <span>Need custom law firm credentials?</span>
-              </div>
-              {showCustomAuth ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-
-            {showCustomAuth && (
-              <div className="mt-2 bg-[#FFFFFF] rounded-[6px] p-4 border border-[#E4E1D8] text-xs shadow-xs animate-subtle-fade">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-[#14171F]">
-                    {authMode === "login" ? "Attorney Sign In" : "Register Workstation Account"}
-                  </span>
-                  <button
-                    onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                    className="text-[#B08D57] hover:underline font-medium"
-                  >
-                    {authMode === "login" ? "Need an account? Register" : "Have an account? Sign In"}
-                  </button>
-                </div>
-                {authError && <p className="text-[var(--certus-brick)] mb-2 font-medium">{authError}</p>}
-                <form onSubmit={handleAuthSubmit} className="auth-form flex gap-2">
-                  <input
-                    type="email"
-                    placeholder="counsel@firm.com"
-                    value={authEmail}
-                    onChange={(e) => setAuthEmail(e.target.value)}
-                    className="flex-1 border border-[#E4E1D8] rounded-[4px] px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#B08D57]"
-                    required
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-32 border border-[#E4E1D8] rounded-[4px] px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-[#B08D57]"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="bg-[#1B2A4A] text-white font-medium px-3.5 py-1.5 rounded-[4px] hover:bg-[#111B30] transition-certus"
-                  >
-                    {authMode === "login" ? "Sign In" : "Register"}
-                  </button>
-                </form>
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
       {/* Subdued Professional Footer */}

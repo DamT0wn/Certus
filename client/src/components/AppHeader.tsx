@@ -8,10 +8,10 @@ interface AppHeaderProps {
   documentName?: string;
   onOpenSearch?: () => void;
   onOpenShortcuts?: () => void;
-  authToken?: string | null;
-  userEmail?: string;
-  onLogout?: () => void;
-  onQuickDemoAuth?: () => void;
+  demoToken?: string | null;
+  demoName?: string;
+  onEndDemo?: () => void;
+  onStartDemo?: () => void;
 }
 
 export function AppHeader({
@@ -19,10 +19,10 @@ export function AppHeader({
   documentName,
   onOpenSearch,
   onOpenShortcuts,
-  authToken,
-  userEmail,
-  onLogout,
-  onQuickDemoAuth,
+  demoToken,
+  demoName,
+  onEndDemo,
+  onStartDemo,
 }: AppHeaderProps) {
   const location = useLocation();
   const [showTrustTooltip, setShowTrustTooltip] = useState(false);
@@ -137,18 +137,24 @@ export function AppHeader({
 
         {/* Quiet Trust Indicator with Popover */}
         <div className="relative">
-          <div
+          <button
+            type="button"
             onMouseEnter={() => setShowTrustTooltip(true)}
             onMouseLeave={() => setShowTrustTooltip(false)}
+            onFocus={() => setShowTrustTooltip(true)}
+            onBlur={() => setShowTrustTooltip(false)}
+            onClick={() => setShowTrustTooltip((visible) => !visible)}
+            aria-expanded={showTrustTooltip}
+            aria-describedby={showTrustTooltip ? "proof-mode-description" : undefined}
             className="flex items-center gap-1.5 bg-[#FAF9F6] text-[var(--certus-forest)] border border-[var(--certus-forest-border)] px-2.5 py-1 rounded-[4px] text-xs font-mono-legal font-medium cursor-help transition-certus"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-forest)]" />
             <span className="hidden sm:inline uppercase tracking-wider text-[10.5px]">Proof Mode Active</span>
             <span className="sm:hidden text-[10.5px]">GATED</span>
-          </div>
+          </button>
 
           {showTrustTooltip && (
-            <div className="absolute right-0 top-9 w-68 p-3.5 bg-[#1B2A4A] text-[#FAF9F6] text-xs rounded-[6px] shadow-xl z-50 border border-[#2B3E68] animate-subtle-fade font-sans-ui">
+            <div id="proof-mode-description" role="tooltip" className="absolute right-0 top-9 w-68 p-3.5 bg-[#1B2A4A] text-[#FAF9F6] text-xs rounded-[6px] shadow-xl z-50 border border-[#2B3E68] animate-subtle-fade font-sans-ui">
               <div className="flex items-center gap-1.5 font-serif-display font-semibold text-[#B08D57] mb-1">
                 <Shield className="w-3.5 h-3.5 text-[#B08D57]" />
                 <span>Deterministic Citation Gate</span>
@@ -171,49 +177,52 @@ export function AppHeader({
           </button>
         )}
 
-        {/* Auth / Profile Menu */}
-        {authToken ? (
+        {/* Temporary demo-session menu; this is not user authentication. */}
+        {demoToken ? (
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
+              aria-expanded={showUserMenu}
+              aria-haspopup="menu"
               className="flex items-center gap-2 bg-[#FAF9F6] hover:bg-[#FFFFFF] border border-[#E4E1D8] hover:border-[#B08D57] px-2.5 py-1 rounded-[6px] text-xs transition-certus"
             >
               <div className="w-5 h-5 rounded-[4px] bg-[#1B2A4A] text-[#B08D57] flex items-center justify-center text-[10px] font-mono-legal font-bold">
-                {userEmail ? userEmail[0].toUpperCase() : "A"}
+                D
               </div>
               <span className="font-medium text-[#14171F] max-w-[120px] truncate hidden md:inline font-sans-ui">
-                {userEmail || "Attorney"}
+                {demoName || "Demo session"}
               </span>
               <ChevronDown className="w-3 h-3 text-[#868C98]" />
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 top-9 w-52 bg-[#FFFFFF] border border-[#E4E1D8] rounded-[6px] shadow-lg py-1 z-50 text-xs animate-subtle-fade font-sans-ui">
+              <div role="menu" className="absolute right-0 top-9 w-52 bg-[#FFFFFF] border border-[#E4E1D8] rounded-[6px] shadow-lg py-1 z-50 text-xs animate-subtle-fade font-sans-ui">
                 <div className="px-3.5 py-2.5 border-b border-[#E4E1D8]">
-                  <div className="font-semibold text-[#14171F] truncate">{userEmail}</div>
-                  <div className="text-[10px] font-mono-legal text-[#868C98]">Certus Legal Workstation</div>
+                  <div className="font-semibold text-[#14171F] truncate">{demoName || "Demo session"}</div>
+                  <div className="text-[10px] font-mono-legal text-[#868C98]">Temporary · no account created</div>
                 </div>
-                {onLogout && (
+                {onEndDemo && (
                   <button
+                    role="menuitem"
                     onClick={() => {
                       setShowUserMenu(false);
-                      onLogout();
+                      onEndDemo();
                     }}
                     className="w-full text-left px-3.5 py-2 text-[var(--certus-brick)] hover:bg-[var(--certus-brick-bg)] flex items-center gap-2 transition-certus"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Sign Out</span>
+                    <span>End demo session</span>
                   </button>
                 )}
               </div>
             )}
           </div>
-        ) : onQuickDemoAuth ? (
+        ) : onStartDemo ? (
           <button
-            onClick={onQuickDemoAuth}
+            onClick={onStartDemo}
             className="text-xs font-semibold bg-[#1B2A4A] hover:bg-[#111B30] text-white px-3.5 py-1.5 rounded-[6px] transition-certus shadow-2xs font-sans-ui border border-[#1B2A4A]"
           >
-            1-Click Demo Login
+            Mock Sign In
           </button>
         ) : null}
       </div>

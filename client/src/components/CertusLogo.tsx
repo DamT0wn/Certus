@@ -24,6 +24,7 @@ export function CertusLogo({
         className={`${iconSizes[size]} relative rounded-md bg-[#1B2A4A] flex items-center justify-center text-white shadow-2xs border border-[#2B3E68] overflow-hidden shrink-0`}
       >
         <svg
+          aria-hidden="true"
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

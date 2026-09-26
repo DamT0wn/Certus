@@ -1,12 +1,13 @@
 import { Response } from "express";
 import { Types } from "mongoose";
-import { AuthedRequest } from "../middleware/auth";
+import { DemoSessionRequest } from "../middleware/demoSession";
 import { LegalDocument, ChatSession } from "../models";
 import { retrieveRelevantChunks } from "../services/vectorSearchService";
 import { answerQuestionWithCitations } from "../services/geminiService";
 import { verifyDocumentPages } from "../services/documentEvidence";
+import { recordAnalysisAudit } from "../services/auditService";
 
-export async function askQuestion(req: AuthedRequest, res: Response) {
+export async function askQuestion(req: DemoSessionRequest, res: Response) {
   const { documentId, question } = req.body;
   if (!documentId || !question || typeof question !== "string" || !question.trim()) {
     return res.status(400).json({ error: "documentId and valid question are required" });
@@ -16,7 +17,7 @@ export async function askQuestion(req: AuthedRequest, res: Response) {
     return res.status(400).json({ error: "Invalid document ID format" });
   }
 
-  const doc = await LegalDocument.findOne({ _id: documentId, ownerId: req.userId });
+  const doc = await LegalDocument.findOne({ _id: documentId, sessionId: req.sessionId });
   if (!doc) return res.status(404).json({ error: "Document not found" });
 
   const relevantChunks = await retrieveRelevantChunks(
@@ -57,17 +58,27 @@ export async function askQuestion(req: AuthedRequest, res: Response) {
   });
   await session.save();
 
+  await recordAnalysisAudit({
+    documentId: doc._id as Types.ObjectId,
+    sessionId: req.sessionId,
+    action: "chat",
+    prompt: question.trim(),
+    response: claims,
+    claimCount: claims.length,
+    unverifiedCount: claims.filter((claim) => claim.label === "UNVERIFIED").length,
+  });
+
   return res.json({ claims });
 }
 
-export async function getChatHistory(req: AuthedRequest, res: Response) {
+export async function getChatHistory(req: DemoSessionRequest, res: Response) {
   const { documentId } = req.params;
   if (!Types.ObjectId.isValid(documentId)) {
     return res.status(400).json({ error: "Invalid document ID format" });
   }
 
-  // Authorization check: User must own the document to read chat history (IDOR protection)
-  const doc = await LegalDocument.findOne({ _id: documentId, ownerId: req.userId }).lean();
+  // Session isolation prevents one demo browser from reading another session's document.
+  const doc = await LegalDocument.findOne({ _id: documentId, sessionId: req.sessionId }).lean();
   if (!doc) {
     return res.status(404).json({ error: "Document not found" });
   }

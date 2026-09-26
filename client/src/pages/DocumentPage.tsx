@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { askQuestion, getDocument, runWhatIf, apiError } from "../api/client";
 import type { Claim, LegalDocumentData } from "../api/client";
@@ -113,31 +113,33 @@ export function DocumentPage() {
     }
   }
 
-  const handleCitationJump = (page: number, text?: string) => {
+  const handleCitationJump = useCallback((page: number, text?: string) => {
     setActivePage(page);
     if (text) {
       const matched = facts.find((f) => f.sourceText === text);
       if (matched) setSelectedClaim(matched);
     }
     setActiveMobileTab("viewer");
-  };
+  }, [facts]);
 
-  const handleClaimSelect = (claim: Claim) => {
+  const handleClaimSelect = useCallback((claim: Claim) => {
     setSelectedClaim(claim);
     if (claim.sourcePage) {
       setActivePage(claim.sourcePage);
     }
-  };
+  }, []);
 
-  const filteredFacts = facts.filter((f) => {
-    if (filterType === "ALL") return true;
-    return f.label === filterType;
-  });
-
-  const factCount = facts.filter((f) => f.label === "DOCUMENT_FACT").length;
-  const lawCount = facts.filter((f) => f.label === "VERIFIED_LAW").length;
-  const inferenceCount = facts.filter((f) => f.label === "AI_INFERENCE").length;
-  const unverifiedCount = facts.filter((f) => f.label === "UNVERIFIED").length;
+  const { filteredFacts, factCount, lawCount, inferenceCount, unverifiedCount } = useMemo(() => {
+    const counts = { DOCUMENT_FACT: 0, VERIFIED_LAW: 0, AI_INFERENCE: 0, UNVERIFIED: 0 };
+    for (const fact of facts) counts[fact.label] += 1;
+    return {
+      filteredFacts: filterType === "ALL" ? facts : facts.filter((fact) => fact.label === filterType),
+      factCount: counts.DOCUMENT_FACT,
+      lawCount: counts.VERIFIED_LAW,
+      inferenceCount: counts.AI_INFERENCE,
+      unverifiedCount: counts.UNVERIFIED,
+    };
+  }, [facts, filterType]);
 
   return (
     <div className="flex flex-col h-screen bg-[#FAF9F6] text-[#14171F] overflow-hidden select-none font-sans-ui">
@@ -191,6 +193,7 @@ export function DocumentPage() {
           <div className="flex lg:hidden bg-[#FAF9F6] p-0.5 rounded-[4px] border border-[#E4E1D8] text-xs">
             <button
               onClick={() => setActiveMobileTab("evidence")}
+              aria-pressed={activeMobileTab === "evidence"}
               className={`px-2.5 py-1 rounded-[3px] font-medium transition-certus ${
                 activeMobileTab === "evidence"
                   ? "bg-[#FFFFFF] text-[#1B2A4A] font-bold shadow-2xs"
@@ -201,6 +204,7 @@ export function DocumentPage() {
             </button>
             <button
               onClick={() => setActiveMobileTab("viewer")}
+              aria-pressed={activeMobileTab === "viewer"}
               className={`px-2.5 py-1 rounded-[3px] font-medium transition-certus ${
                 activeMobileTab === "viewer"
                   ? "bg-[#FFFFFF] text-[#1B2A4A] font-bold shadow-2xs"
@@ -211,6 +215,7 @@ export function DocumentPage() {
             </button>
             <button
               onClick={() => setActiveMobileTab("intelligence")}
+              aria-pressed={activeMobileTab === "intelligence"}
               className={`px-2.5 py-1 rounded-[3px] font-medium transition-certus ${
                 activeMobileTab === "intelligence"
                   ? "bg-[#FFFFFF] text-[#1B2A4A] font-bold shadow-2xs"
@@ -315,12 +320,12 @@ export function DocumentPage() {
                 No claims match the active filter criteria.
               </div>
             ) : (
-              filteredFacts.map((claim, idx) => (
+              filteredFacts.map((claim) => (
                 <ClaimCard
-                  key={idx}
+                  key={`${claim.sourcePage ?? 0}:${claim.label}:${claim.text}`}
                   claim={claim}
                   isSelected={selectedClaim?.text === claim.text}
-                  onSelect={() => handleClaimSelect(claim)}
+                  onSelect={handleClaimSelect}
                   onCitationClick={handleCitationJump}
                   showProofChain={true}
                 />
@@ -380,15 +385,20 @@ export function DocumentPage() {
           } else if (actionId === "jump_p1") setActivePage(1);
           else if (actionId === "jump_p2") setActivePage(2);
           else if (actionId === "jump_p3") setActivePage(3);
-          else if (actionId === "scenario_resignation") {
+          else if (actionId === "scenario_termination") {
             handleScenario(
-              "The party wants to resign/exit early, before any notice period ends.",
-              "Early resignation"
+              "Re-run extraction for early termination, focusing on termination rights, notice requirements, and exit fees supported by this document.",
+              "Early Termination"
             );
           } else if (actionId === "scenario_breach") {
             handleScenario(
-              "One party breaches a key obligation in this document.",
-              "Breach of a key clause"
+              "Re-run extraction for a breach of contract, highlighting obligation clauses, penalty triggers, and cure periods supported by this document.",
+              "Breach of Contract"
+            );
+          } else if (actionId === "scenario_jurisdiction") {
+            handleScenario(
+              "Re-run extraction for a jurisdiction challenge, surfacing governing law, venue, and arbitration clauses supported by this document.",
+              "Jurisdiction Challenge"
             );
           }
         }}

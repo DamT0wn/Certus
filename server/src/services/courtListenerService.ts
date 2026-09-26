@@ -11,6 +11,26 @@ export interface CaseLawResult {
   status: string;
 }
 
+interface CourtListenerItem {
+  cluster_id?: unknown;
+  absolute_url?: unknown;
+  caseName?: unknown;
+  court?: unknown;
+  dateFiled?: unknown;
+  citation?: unknown;
+  opinions?: Array<{ snippet?: unknown }>;
+  snippet?: unknown;
+  status?: unknown;
+}
+
+interface CourtListenerPayload {
+  results?: unknown;
+}
+
+function isCourtListenerPayload(value: unknown): value is { results: CourtListenerItem[] } {
+  return typeof value === "object" && value !== null && Array.isArray((value as CourtListenerPayload).results);
+}
+
 export class ResearchError extends Error {
   constructor(message: string, public statusCode: number) { super(message); }
 }
@@ -40,22 +60,23 @@ export async function searchCaseLaw(query: string) {
   if (response.status === 401 || response.status === 403) throw new ResearchError("CourtListener rejected the server credential or API access. Check the token and account permissions.", 502);
   if (response.status === 429) throw new ResearchError("CourtListener rate limit reached. Please try again later.", 429);
   if (!response.ok) throw new ResearchError("CourtListener search is temporarily unavailable.", 502);
-  let payload: any;
+  let payload: unknown;
   try { payload = await response.json(); } catch { throw new ResearchError("CourtListener returned an invalid response.", 502); }
-  if (!Array.isArray(payload?.results)) throw new ResearchError("CourtListener returned an invalid response.", 502);
-  const results: CaseLawResult[] = payload.results.slice(0, 10).flatMap((item: any) => {
-    if (!Number.isSafeInteger(item?.cluster_id) || typeof item.absolute_url !== "string") return [];
+  if (!isCourtListenerPayload(payload)) throw new ResearchError("CourtListener returned an invalid response.", 502);
+  const results: CaseLawResult[] = payload.results.slice(0, 10).flatMap((item) => {
+    const clusterId = item.cluster_id;
+    if (typeof clusterId !== "number" || !Number.isSafeInteger(clusterId) || typeof item.absolute_url !== "string") return [];
     let source: URL;
     try { source = new URL(item.absolute_url, ORIGIN); } catch { return []; }
     if (source.origin !== ORIGIN || source.username || source.password || !source.pathname.startsWith("/opinion/")) return [];
     return [{
-      id: item.cluster_id,
+      id: clusterId,
       caseName: plain(item.caseName, 300) || "Untitled opinion",
       court: plain(item.court, 200),
       dateFiled: typeof item.dateFiled === "string" ? item.dateFiled.slice(0, 10) : null,
       citations: Array.isArray(item.citation) ? item.citation.filter((c: unknown) => typeof c === "string").slice(0, 10).map((c: string) => plain(c, 150)) : [],
       url: source.href,
-      snippet: plain(item.opinions?.[0]?.snippet || item.snippet),
+      snippet: plain(item.opinions?.[0]?.snippet ?? item.snippet),
       status: plain(item.status, 80),
     }];
   });

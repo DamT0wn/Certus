@@ -16,17 +16,22 @@ const assert = require('node:assert/strict');
     const errors = [];
     page.on('pageerror', err => errors.push(err.message));
     await page.goto(`${webBase}/`);
+    await page.getByRole('heading', { name: 'Mock sign-in for this demo' }).waitFor();
+    const intakeAria = await page.locator('body').ariaSnapshot();
+    assert.match(intakeAria, /heading "Mock sign-in for this demo"/);
+    assert.match(intakeAria, /button "Continue with mock sign-in"/);
     for (const width of [375, 768, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.screenshot({ path: path.join(out, `intake-${width}.png`), fullPage: true });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Intake overflow at ${width}`);
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: 'Continue with mock sign-in' }).click();
     await page.getByRole('button', { name: 'Load Example PDF' }).click();
     await page.waitForURL(/\/document\/[a-f0-9]+$/, { timeout: 120000 });
     await page.getByText('Evidence Feed', { exact: true }).waitFor();
     const id = page.url().split('/').pop();
-    const token = await page.evaluate(() => localStorage.getItem('certus_token'));
+    const token = await page.evaluate(() => sessionStorage.getItem('certus_demo_token'));
     const headers = { Authorization: `Bearer ${token}` };
     const doc = await (await context.request.get(`${apiBase}/documents/${id}`, { headers })).json();
     assert(doc.document.ocrText.includes('$7,500'));
@@ -46,7 +51,7 @@ const assert = require('node:assert/strict');
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Analysis overflow at ${width}: ${tab}`);
       }
     }
-    await page.getByRole('button', { name: /Early exit/ }).click();
+    await page.getByRole('button', { name: /Early Termination/ }).click();
     await page.getByText(/The scenario is directly affected by this clause:/).first().waitFor();
     await page.locator('input[placeholder="Ask Certus or probe a legal clause..."]').fill('What is the fee?');
     await page.getByRole('button', { name: 'Submit Inquiry' }).click();
@@ -57,10 +62,14 @@ const assert = require('node:assert/strict');
     await page.getByRole('button', { name: 'Submit Inquiry' }).click();
     await page.getByRole('alert').filter({ hasText: 'Chat service unavailable.' }).waitFor();
     await page.route('**/api/documents/*/whatif', route => route.fulfill({ status: 502, json: { error: 'Scenario service unavailable.' } }));
-    await page.getByRole('button', { name: /Material breach/ }).click();
+    await page.getByRole('button', { name: /Breach of Contract/ }).click();
     await page.getByRole('alert').filter({ hasText: 'Scenario service unavailable.' }).waitFor();
     await page.getByRole('link', { name: /Generate Brief/ }).click();
     await page.getByRole('heading', { name: 'Legal Document Audit & Citation Brief' }).waitFor();
+    const briefAria = await page.locator('body').ariaSnapshot();
+    assert.match(briefAria, /heading "Legal Document Audit & Citation Brief"/);
+    assert.match(briefAria, /button "Copy Memo"/);
+    const finalBrief = (await (await context.request.get(briefUrl, { headers })).json()).brief;
     for (const width of [375, 768, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.screenshot({ path: path.join(out, `brief-${width}.png`), fullPage: true });
@@ -68,7 +77,7 @@ const assert = require('node:assert/strict');
     }
     await page.getByRole('button', { name: 'Copy Memo', exact: true }).click();
     await page.getByRole('button', { name: 'Copied Markdown' }).waitFor();
-    assert((await page.evaluate(() => navigator.clipboard.readText())).includes(brief.contentHash));
+    assert((await page.evaluate(() => navigator.clipboard.readText())).includes(finalBrief.contentHash));
     await page.pdf({ path: path.join(out, 'exported-brief.pdf'), format: 'A4', printBackground: true });
     await page.route('**/api/documents/*/brief', route => route.fulfill({ status: 503, json: { error: 'Service unavailable. Please retry.' } }));
     await page.reload();
@@ -81,6 +90,6 @@ const assert = require('node:assert/strict');
     await page.getByRole('button', { name: 'Load Example PDF' }).click();
     await page.getByRole('alert').filter({ hasText: 'Upload service unavailable.' }).waitFor();
     assert.equal(errors.length, 0, errors.join('\n'));
-    console.log(JSON.stringify({ result: 'passed', mode: brief.mode, pages: doc.document.ocrPages.length, claims: doc.facts.length, widths: [375, 768, 1440], checks: ['upload', 'PDF text', 'extraction', 'page citations', 'scenarios', 'chat', 'brief', 'stable SHA-256', 'clipboard export', 'PDF export', 'brief network failure'], artifacts: out }));
+    console.log(JSON.stringify({ result: 'passed', mode: brief.mode, pages: doc.document.ocrPages.length, claims: doc.facts.length, widths: [375, 768, 1440], checks: ['intake ARIA tree', 'mock sign-in', 'upload', 'PDF text', 'extraction', 'page citations', 'scenarios', 'chat', 'brief ARIA tree', 'stable SHA-256', 'clipboard export', 'PDF export', 'brief network failure'], artifacts: out }));
   } finally { await browser.close(); }
 })().catch(err => { console.error(err); process.exitCode = 1; });

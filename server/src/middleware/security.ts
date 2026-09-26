@@ -10,16 +10,16 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
   res.setHeader("X-XSS-Protection", "0");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
-  );
+  res.setHeader("Content-Security-Policy", "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader("Cache-Control", "no-store");
   next();
 }
 
 /**
  * Lightweight in-memory sliding window rate limiter
- * Protects auth and AI endpoints without requiring external Redis dependency.
+ * Protects demo-session and AI endpoints without requiring external Redis dependency.
  */
 interface RateLimitEntry {
   count: number;
@@ -63,10 +63,10 @@ export function createRateLimiter(options: { windowMs: number; maxRequests: numb
 /**
  * Rate limiters configured for sensitive routes
  */
-export const authLimiter = createRateLimiter({
+export const demoSessionLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 30, // 30 requests per 15 mins per IP
-  message: "Too many authentication attempts. Please try again in 15 minutes.",
+  message: "Too many demo sessions were requested. Please try again later.",
 });
 
 export const computeLimiter = createRateLimiter({
@@ -112,5 +112,7 @@ export function validateUploadedPdf(fileBuffer: Buffer): { valid: boolean; error
  * Sanitize filename to prevent directory traversal or header injection
  */
 export function sanitizeFilename(rawName: string): string {
-  return rawName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
+  const normalized = rawName.normalize("NFKC").replace(/\0/g, "");
+  const safe = normalized.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "").slice(0, 100);
+  return safe || "document.pdf";
 }

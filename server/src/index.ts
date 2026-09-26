@@ -22,12 +22,12 @@ async function start() {
 
   if (isPlaceholderUri && process.env.MOCK_MODE === "true") {
     // MOCK MODE — replace with real MongoDB Atlas URI in .env when Atlas is configured
-    console.log("[certus] MOCK MODE: Placeholder MONGODB_URI detected. Starting in-memory MongoDB...");
+    console.info("[certus] MOCK MODE: Placeholder MONGODB_URI detected. Starting in-memory MongoDB...");
     try {
       const { MongoMemoryServer } = await import("mongodb-memory-server");
       const mongod = await MongoMemoryServer.create();
       mongoUri = mongod.getUri();
-      console.log(`[certus] in-memory MongoDB ready at ${mongoUri}`);
+      console.info(`[certus] in-memory MongoDB ready at ${mongoUri}`);
     } catch (memErr) {
       console.error("[certus] Failed to start MongoMemoryServer:", (memErr as Error).message);
     }
@@ -35,17 +35,17 @@ async function start() {
 
   try {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 3000 });
-    console.log(`[certus] connected to MongoDB (${mongoUri.startsWith("mongodb://127.0.0.1") ? "in-memory" : "external"})`);
+    console.info(`[certus] connected to MongoDB (${mongoUri.startsWith("mongodb://127.0.0.1") ? "in-memory" : "external"})`);
   } catch (err) {
     console.error("[certus] MongoDB connection failed:", (err as Error).message);
     if (process.env.MOCK_MODE === "true") {
-      console.log("[certus] MOCK MODE: Attempting fallback to in-memory MongoDB...");
+      console.info("[certus] MOCK MODE: Attempting fallback to in-memory MongoDB...");
       try {
         const { MongoMemoryServer } = await import("mongodb-memory-server");
         const mongod = await MongoMemoryServer.create();
         mongoUri = mongod.getUri();
         await mongoose.connect(mongoUri);
-        console.log(`[certus] in-memory MongoDB fallback connected at ${mongoUri}`);
+        console.info(`[certus] in-memory MongoDB fallback connected at ${mongoUri}`);
       } catch (fallbackErr) {
         console.error("[certus] In-memory MongoDB fallback failed:", (fallbackErr as Error).message);
       }
@@ -55,9 +55,9 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`[certus] server listening on port ${PORT}`);
+    console.info(`[certus] server listening on port ${PORT}`);
     if (process.env.MOCK_MODE === "true") {
-      console.log("[certus] DEMO MODE: Real PDF text parsing; simulated AI and retrieval.");
+      console.info("[certus] DEMO MODE: Real PDF text parsing; simulated AI and retrieval.");
     }
   });
 }

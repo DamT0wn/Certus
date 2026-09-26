@@ -16,7 +16,7 @@ export function apiError(error: unknown): string {
 }
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("certus_token");
+  const token = sessionStorage.getItem("certus_demo_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -40,7 +40,7 @@ export interface Claim {
 export interface LegalDocumentData {
   mode?: "mock" | "live";
   _id: string;
-  ownerId: string;
+  sessionId: string;
   filename: string;
   mimeType: string;
   status: "uploaded" | "ocr_processing" | "ocr_done" | "extracting" | "ready" | "failed";
@@ -68,17 +68,14 @@ export interface BriefData {
   applicableLaw: Claim[];
   flaggedInferences: Claim[];
   openQuestions: Claim[];
+  qaTranscript: { role: "user" | "assistant"; text: string; claims?: Claim[]; createdAt: string }[];
+  scenarioComparisons: { prompt: string; claims: Claim[]; createdAt: string }[];
   disclaimer: string;
 }
 
-export async function login(email: string, password: string) {
-  const { data } = await api.post("/auth/login", { email, password });
-  return data.token as string;
-}
-
-export async function register(email: string, password: string) {
-  const { data } = await api.post("/auth/register", { email, password });
-  return data.token as string;
+export async function createDemoSession() {
+  const { data } = await api.post("/demo/session");
+  return data as { token: string; displayName: string };
 }
 
 export async function uploadDocument(file: File) {

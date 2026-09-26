@@ -35,9 +35,12 @@ export async function chunkAndEmbedDocument(
   const rawChunks = pages.flatMap(chunkPage).filter((c) => c.text.trim().length > 0);
   if (rawChunks.length === 0) return 0;
 
-  // Parallel embedding generation
-  const chunkDocs = await Promise.all(
-    rawChunks.map(async (chunk) => {
+  // Bound concurrency to avoid exhausting upstream quotas on large PDFs.
+  const chunkDocs: Array<RawChunk & { embedding: number[]; documentId: Types.ObjectId }> = [];
+  const batchSize = 5;
+  for (let start = 0; start < rawChunks.length; start += batchSize) {
+    const batch = rawChunks.slice(start, start + batchSize);
+    const embedded = await Promise.all(batch.map(async (chunk) => {
       const embedding = await embedText(chunk.text);
       return {
         documentId,
@@ -45,8 +48,9 @@ export async function chunkAndEmbedDocument(
         text: chunk.text,
         embedding,
       };
-    })
-  );
+    }));
+    chunkDocs.push(...embedded);
+  }
 
   // Bulk insertion for high efficiency
   const inserted = await Chunk.insertMany(chunkDocs);
@@ -67,7 +71,6 @@ export async function retrieveRelevantChunks(
 ): Promise<{ text: string; pageNumber: number }[]> {
   // MOCK MODE — replace with real MongoDB Atlas Vector Search when Atlas index is ready
   if (process.env.MOCK_MODE === "true") {
-    console.log(`[certus] MOCK VECTOR SEARCH: In-memory chunk retrieval for doc ${documentId}`);
     const chunks = await Chunk.find({ documentId }).lean();
     if (!chunks.length) return [];
 

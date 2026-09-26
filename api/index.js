@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
   const path = (req.url || "").split("?")[0];
   if (missing.length) {
     return res.status(503).json({
-      error: `Server setup incomplete: configure ${missing.join(", ")} in Vercel production environment variables.`,
+      error: "The service is not fully configured. Please contact the administrator.",
       code: "SERVER_NOT_CONFIGURED",
     });
   }
@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
     if (path === "/api" || path === "/api/") req.url = "/api/health";
   } catch {
     return res.status(503).json({
-      error: "Database unavailable. Check the production MongoDB connection and network access settings.",
+      error: "The service is temporarily unavailable. Please retry later.",
       code: "DATABASE_UNAVAILABLE",
     });
   }
@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
     return app(req, res);
   } catch {
     return res.status(503).json({
-      error: "The API could not initialize. Check the deployment runtime logs.",
+      error: "The service is temporarily unavailable. Please retry later.",
       code: "API_INITIALIZATION_FAILED",
     });
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ZoomIn, ZoomOut, Search, Sparkles, FileCheck, Bookmark } from "lucide-react";
 import type { Claim } from "../api/client";
 
@@ -27,7 +27,17 @@ export function DocumentViewer({
   const pageRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const displayPages = ocrPages;
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const claimsByPage = useMemo(() => {
+    const grouped = new Map<number, Claim[]>();
+    for (const claim of claims) {
+      if (!claim.sourcePage) continue;
+      const pageClaims = grouped.get(claim.sourcePage) ?? [];
+      pageClaims.push(claim);
+      grouped.set(claim.sourcePage, pageClaims);
+    }
+    return grouped;
+  }, [claims]);
 
   useEffect(() => {
     if (activePage && pageRefs.current[activePage]) {
@@ -43,7 +53,7 @@ export function DocumentViewer({
   };
 
   const getClaimsForPage = (pageNumber: number) => {
-    return claims.filter((c) => c.sourcePage === pageNumber);
+    return claimsByPage.get(pageNumber) ?? [];
   };
 
   const renderFormattedParagraphs = (pageText: string, pageNumber: number) => {
@@ -52,8 +62,7 @@ export function DocumentViewer({
 
     return paragraphs.map((para, pIdx) => {
       const isSearchMatch =
-        searchQuery.trim().length > 1 &&
-        para.toLowerCase().includes(searchQuery.toLowerCase());
+        deferredSearchQuery.length > 1 && para.toLowerCase().includes(deferredSearchQuery);
 
       let highlightedElements: ReactNode = para;
 
@@ -74,19 +83,20 @@ export function DocumentViewer({
             highlightedElements = (
               <span>
                 {parts[0]}
-                <mark
+                <button
+                  type="button"
                   onClick={() => onSentenceClick && onSentenceClick(claim)}
                   className={`${highlightClass} ${
                     isTarget ? "active font-medium" : ""
                   } cursor-pointer transition-certus inline`}
-                  title={`Grounded Citation: ${claim.label} — click to view claim`}
+                  aria-label={`View ${claim.label.toLowerCase().replaceAll("_", " ")} claim from this passage`}
                 >
                   {cleanSource}
                   {/* Refined Superscript Brass Footnote Marker */}
                   <sup className="citation-superscript-marker select-none">
                     [§]
                   </sup>
-                </mark>
+                </button>
                 {parts.slice(1).join(cleanSource)}
               </span>
             );
@@ -134,13 +144,15 @@ export function DocumentViewer({
 
           {/* Quick Page Jumper */}
           <div className="flex items-center gap-1 bg-[#FAF9F6] p-0.5 rounded-[4px] border border-[#E4E1D8] text-xs">
-            {displayPages.map((p) => (
+            {ocrPages.map((p) => (
               <button
                 key={p.pageNumber}
                 onClick={() => {
                   onPageChange(p.pageNumber);
                   pageRefs.current[p.pageNumber]?.scrollIntoView({ behavior: "smooth" });
                 }}
+                aria-label={`Go to document page ${p.pageNumber}`}
+                aria-pressed={activePage === p.pageNumber}
                 className={`px-2 py-0.5 rounded-[3px] text-[10.5px] font-mono-legal transition-certus ${
                   activePage === p.pageNumber
                     ? "bg-[#FFFFFF] text-[#1B2A4A] font-bold border border-[#E4E1D8] shadow-2xs"
@@ -158,6 +170,7 @@ export function DocumentViewer({
           <Search className="w-3.5 h-3.5 text-[#868C98] absolute left-2.5 pointer-events-none" />
           <input
             type="text"
+            aria-label="Search document text"
             placeholder="Search document text..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -165,7 +178,9 @@ export function DocumentViewer({
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
+              aria-label="Clear document search"
               className="absolute right-2 text-[10px] text-[#868C98] hover:text-[#14171F]"
             >
               ×
@@ -177,7 +192,9 @@ export function DocumentViewer({
         <div className="flex items-center gap-2">
           {/* Evidence Focus Toggle */}
           <button
+            type="button"
             onClick={() => setShowAnnotations(!showAnnotations)}
+            aria-pressed={showAnnotations}
             className={`flex items-center gap-1 px-2.5 py-1 rounded-[4px] text-[11px] font-mono-legal transition-certus border ${
               showAnnotations
                 ? "bg-[#FAF9F6] border-[#B08D57] text-[#91703E]"
@@ -194,10 +211,12 @@ export function DocumentViewer({
           {/* Zoom controls */}
           <div className="flex items-center gap-1 bg-[#FAF9F6] p-0.5 rounded-[4px] border border-[#E4E1D8] text-xs">
             <button
+              type="button"
               onClick={() => handleZoom(-10)}
               disabled={zoomLevel <= 80}
               className="p-1 rounded hover:bg-[#FFFFFF] text-[#525866] disabled:opacity-30 transition-certus"
               title="Zoom Out"
+              aria-label="Zoom out document"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
@@ -205,14 +224,17 @@ export function DocumentViewer({
               {zoomLevel}%
             </span>
             <button
+              type="button"
               onClick={() => handleZoom(10)}
               disabled={zoomLevel >= 130}
               className="p-1 rounded hover:bg-[#FFFFFF] text-[#525866] disabled:opacity-30 transition-certus"
               title="Zoom In"
+              aria-label="Zoom in document"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
               onClick={() => setZoomLevel(100)}
               className="px-1.5 py-0.5 text-[10px] font-mono-legal text-[#525866] hover:text-[#14171F]"
               title="Fit standard width"
@@ -228,8 +250,8 @@ export function DocumentViewer({
         ref={containerRef}
         className="flex-1 overflow-y-auto p-3 sm:p-6 legal-canvas-pattern custom-scrollbar flex flex-col items-center gap-10"
       >
-        {displayPages.length === 0 && <p role="status" className="p-6 text-sm">No parsed pages available.</p>}
-        {displayPages.map((page) => {
+        {ocrPages.length === 0 && <p role="status" className="p-6 text-sm">No parsed pages available.</p>}
+        {ocrPages.map((page) => {
           const isCurrentActive = activePage === page.pageNumber;
           const pageClaims = getClaimsForPage(page.pageNumber);
 
@@ -255,7 +277,7 @@ export function DocumentViewer({
                   CERTUS REPOSITORY · EVIDENCE AUDIT
                 </span>
                 <span>
-                  PAGE {page.pageNumber} OF {displayPages.length}
+                  PAGE {page.pageNumber} OF {ocrPages.length}
                 </span>
               </div>
 
