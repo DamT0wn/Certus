@@ -3,7 +3,12 @@ import axios from "axios";
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || "/api", timeout: 120000 });
 
 export function apiError(error: unknown): string {
-  if (axios.isAxiosError(error)) return error.response?.data?.error || (error.code === "ECONNABORTED" ? "The request timed out. Please retry." : error.message);
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.error;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return error.code === "ECONNABORTED" ? "The request timed out. Please retry." : error.message;
+  }
   return error instanceof Error ? error.message : "Request failed. Please retry.";
 }
 

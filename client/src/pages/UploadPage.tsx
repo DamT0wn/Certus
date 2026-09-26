@@ -48,8 +48,8 @@ export function UploadPage() {
       setAuthToken(token);
       setUserEmail(authEmail);
       setShowCustomAuth(false);
-    } catch (err: any) {
-      setAuthError(err?.response?.data?.error || err.message || "Authentication failed");
+    } catch (err: unknown) {
+      setAuthError(apiError(err));
     } finally {
       setBusy(false);
     }
@@ -67,8 +67,8 @@ export function UploadPage() {
       localStorage.setItem("certus_email", email);
       setAuthToken(token);
       setUserEmail(email);
-    } catch (err: any) {
-      setAuthError(err?.response?.data?.error || err.message);
+    } catch (err: unknown) {
+      setAuthError(apiError(err));
     } finally {
       setBusy(false);
     }
@@ -120,8 +120,8 @@ export function UploadPage() {
       await extractDocument(documentId);
 
       navigate(`/document/${documentId}`);
-    } catch (err: any) {
-      setStatusMessage(`Error: ${err?.response?.data?.detail || err?.response?.data?.error || err.message}`);
+    } catch (err: unknown) {
+      setStatusMessage(`Error: ${apiError(err)}`);
       setBusy(false);
       setCurrentStepIndex(-1);
     }
