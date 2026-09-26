@@ -24,7 +24,13 @@ export function UploadPage() {
 
   const navigate = useNavigate();
   const [mockMode, setMockMode] = useState(false);
-  useEffect(() => { api.get("/health").then(({data}) => setMockMode(data.mode === "mock")).catch(err => setAuthError(apiError(err))); }, []);
+  useEffect(() => {
+    api.get("/health")
+      .then(({ data }) => setMockMode(data.mode === "mock"))
+      // A background capability check should not display a setup banner.
+      // User-initiated requests still report failures through apiError.
+      .catch(() => setMockMode(false));
+  }, []);
 
   const UPLOAD_STEPS = [
     { title: "Upload & Parse Document", desc: "Read pages and index source text" },

@@ -4,6 +4,9 @@ export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || 
 
 export function apiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (["SERVER_NOT_CONFIGURED", "DATABASE_UNAVAILABLE", "API_INITIALIZATION_FAILED"].includes(error.response?.data?.code)) {
+      return "The service is temporarily unavailable. Please try again later.";
+    }
     const detail = error.response?.data?.error;
     if (typeof detail === "string") return detail;
     if (detail && typeof detail.message === "string") return detail.message;
