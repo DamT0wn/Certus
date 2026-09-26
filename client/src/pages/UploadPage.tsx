@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadDocument, extractDocument, createDemoSession, api, apiError } from "../api/client";
+import { uploadDocument, extractDocument, createDemoSession, apiError } from "../api/client";
 import { AppHeader } from "../components/AppHeader";
 import { CommandPalette } from "../components/CommandPalette";
 import { KeyboardShortcutsModal } from "../components/KeyboardShortcutsModal";
@@ -20,14 +20,7 @@ export function UploadPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const navigate = useNavigate();
-  const [mockMode, setMockMode] = useState(false);
-  useEffect(() => {
-    api.get("/health")
-      .then(({ data }) => setMockMode(data.mode === "mock"))
-      // A background capability check should not display a setup banner.
-      // User-initiated requests still report failures through apiError.
-      .catch(() => setMockMode(false));
-  }, []);
+  const mockMode = true;
 
   const UPLOAD_STEPS = [
     { title: "Upload & Parse Document", desc: "Read pages and index source text" },

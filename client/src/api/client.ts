@@ -1,4 +1,15 @@
 import axios from "axios";
+import {
+  mockAskQuestion,
+  mockExtractDocument,
+  mockGetBrief,
+  mockGetDocument,
+  mockRunWhatIf,
+  mockSearchCaseLaw,
+  mockUploadDocument,
+} from "./browserMock";
+
+export const browserMockEnabled = import.meta.env.VITE_USE_BROWSER_MOCK !== "false";
 
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || "/api", timeout: 120000 });
 
@@ -80,6 +91,7 @@ export function createDemoSession() {
 }
 
 export async function uploadDocument(file: File) {
+  if (browserMockEnabled) return mockUploadDocument(file);
   const form = new FormData();
   form.append("file", file);
   const { data } = await api.post("/documents/upload", form, {
@@ -89,38 +101,45 @@ export async function uploadDocument(file: File) {
 }
 
 export async function extractDocument(documentId: string) {
+  if (browserMockEnabled) return mockExtractDocument(documentId);
   const { data } = await api.post(`/documents/${documentId}/extract`);
   return data.facts as Claim[];
 }
 
 export async function getDocument(documentId: string) {
+  if (browserMockEnabled) return mockGetDocument(documentId);
   const { data } = await api.get(`/documents/${documentId}`);
   return data as { document: LegalDocumentData; facts: Claim[] };
 }
 
 export async function askQuestion(documentId: string, question: string) {
+  if (browserMockEnabled) return mockAskQuestion(documentId, question);
   const { data } = await api.post("/chat", { documentId, question });
   return data.claims as Claim[];
 }
 
 export async function runWhatIf(documentId: string, scenarioPrompt: string) {
+  if (browserMockEnabled) return mockRunWhatIf(documentId, scenarioPrompt);
   const { data } = await api.post(`/documents/${documentId}/whatif`, { scenarioPrompt });
   return data.claims as Claim[];
 }
 
 export async function getBrief(documentId: string) {
+  if (browserMockEnabled) return mockGetBrief(documentId);
   const { data } = await api.get(`/documents/${documentId}/brief`);
   return data.brief as BriefData;
 }
 
 export interface CaseLawSearch {
-  provider: "CourtListener";
+  provider: "CourtListener" | "Mock research";
   query: string;
   retrievedAt: string;
+  notice?: string;
   results: { id: number; caseName: string; court: string; dateFiled: string | null; citations: string[]; url: string; snippet: string; status: string }[];
 }
 
 export async function searchCaseLaw(query: string): Promise<CaseLawSearch> {
+  if (browserMockEnabled) return mockSearchCaseLaw(query);
   const { data } = await api.get("/research/cases", { params: { q: query }, timeout: 20000 });
   return data;
 }

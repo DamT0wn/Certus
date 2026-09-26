@@ -5,7 +5,7 @@
 - Shared CSS status tokens: document facts and verified states use deep forest `#2F5233`; inferences use ochre; rejected claims use brick. All badges use the same tokens in intake, analysis, and brief.
 - Intake legend is one divided strip on tablet/desktop, stacked inside the same border on narrow screens. PROOFS has a brass hairline pill. Lucide interface icons share a 1.75 stroke width. Demo login uses navy.
 - Analysis uses switchable panels below 1024px. Toolbars wrap, document paper fits the available width, and brief metadata/cards wrap on phones.
-- Existing API routes drive upload/parsing, extraction, chat, scenarios, document retrieval, and brief generation. Citation verification runs inside extraction/chat/scenario processing; no separate verification endpoint is required.
+- The deployed demo performs PDF parsing, deterministic claim extraction, chat, scenarios, and brief generation in the browser. No runtime API, database, or external service is required.
 - Claim counts, review counts, citation match scores, pass rate, page count, summary, and content digest come from backend evidence. Removed the employment-contract viewer fallback, fixed salary/jurisdiction summary, fixed risk scenarios, and fake hash.
 - SHA-256 covers a versioned JSON representation of OCR text, persisted claim evidence, Q&A, and scenario results. It is a content digest, not a digital signature or proof of legal correctness. Separate audit records store prompt/response hashes for extraction, chat, and scenarios.
 - Page-specific verification rejects quotes attributed to the wrong page. Unspecified pages are resolved from the actual source quote when possible.
@@ -16,8 +16,8 @@
 
 | Component | Current behavior |
 | --- | --- |
-| Demo session and HTTP API | Temporary random browser session ID; no account, email, password, JWT secret, or sign-in API dependency |
-| Database | In-memory MongoDB; not durable production storage |
+| Demo session and HTTP API | Temporary random browser session ID; the deployed demo makes no API requests |
+| Database | Browser `sessionStorage`; isolated to the tab and cleared when it closes |
 | PDF text | Actual uploaded PDF parsed with pdf-parse; no substituted contract |
 | Scanned PDF OCR | Requires configured Google Document AI; demo rejects PDFs without readable text |
 | Extraction | Demo sentence extraction from the actual document; not live Gemini |
@@ -26,11 +26,11 @@
 | Embeddings and search | Deterministic demo vectors and keyword retrieval |
 | Citation gate, statistics, digest, brief, export | Real computation from stored evidence |
 | External law verification | Unavailable pending selection and approval of a source/provider |
-| Case-law research | Live CourtListener search in Proof Intelligence; source links and metadata, no automatic VERIFIED_LAW promotion |
+| Case-law research | Explicitly disabled in the self-contained deployment; no simulated legal authority is presented |
 
 ## Credentials and infrastructure still required
 
-The local configuration has placeholder MongoDB, Google Cloud project, and Gemini values. No accounts, paid services, or deployment targets were provisioned. Live cloud operation has not been tested.
+The deployed mock needs no credentials or infrastructure. The optional backend remains available for future live integration work and has not been enabled in the deployment.
 
 Fill `server/.env.local` (or real deployment environment variables):
 
@@ -42,14 +42,14 @@ Fill `server/.env.local` (or real deployment environment variables):
 
 The backend loads `.env.local`, then `.env`, without overriding deployment environment variables. Live startup fails for missing/placeholder configuration or database connection failure instead of silently serving mocked data.
 
-Optional frontend configuration in `client/.env.local`: `VITE_API_BASE_URL` (default `/api`) and `API_PROXY_TARGET` (Vite development proxy, default `http://localhost:5000`). VITE variables are public: never put credentials there. Both example environment files contain variable names without real values. `.env` and `.env.local` are ignored and not tracked.
+Optional frontend configuration in `client/.env.local`: `VITE_USE_BROWSER_MOCK=false` enables the optional backend path; `VITE_API_BASE_URL` and `API_PROXY_TARGET` then select it. VITE variables are public: never put credentials there. The deployed default is the self-contained browser mock.
 
 ## Verification
 
 - Client and server TypeScript production builds pass.
 - 47 server tests pass across 9 suites. Coverage is 69.94% by lines overall and 82.75% in controllers; tests include the complete upload → extraction → citation-gated Q&A → scenario → brief flow, session isolation, safe API errors, wrong-page citations, digest stability, unsupported-law rejection, and CourtListener response handling.
 - Browser flow uses a valid fictional two-page services agreement containing a $7,500 fee and fifteen-day notice, rather than the old employment fixture.
-- Automated browser checks cover mock sign-in, upload, parsing, extraction, page citations, chat, scenario handling, brief generation, stable digest, clipboard copy, PDF generation, and the Intake/Brief accessibility trees.
+- Automated browser checks cover mock sign-in, local PDF parsing, extraction, page citations, chat, scenarios, brief generation, stable digest, clipboard copy, PDF generation, the Intake/Brief accessibility trees, and zero runtime API requests.
 - Intake, each analysis panel, and brief tested at 375px and 768px, plus desktop 1440px. No document-level horizontal overflow. Screenshots inspected.
 - Network-failure checks cover upload, extraction, chat, scenarios, and brief loading.
 - Sample PDF and exported brief rendered for visual inspection. Test artifacts are local in ignored `tmp/qa/`.

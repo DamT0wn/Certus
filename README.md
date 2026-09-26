@@ -10,7 +10,7 @@ Run `npm run dev` in each directory.
 
 - Frontend: http://127.0.0.1:5173
 - Backend: http://localhost:5000/api
-- Demo: set `MOCK_MODE=true` and use a placeholder `MONGODB_URI` to start an in-memory database. Mock sign-in creates a tab-scoped random browser session locally, so it does not depend on an authentication service or server secret.
+- Deployed demo: fully self-contained browser mock. It requires no database, authentication service, API keys, or backend environment variables. Data stays in the current browser tab and is cleared when that tab closes.
 - Live: set `MOCK_MODE=false` and supply the Google Document AI, Gemini, and MongoDB Atlas settings listed in the example file.
 
 Environment files and local credential folders are ignored. Never put API keys in VITE variables or commit credential JSON.
@@ -23,19 +23,18 @@ Demo mode parses the actual uploaded PDF. AI extraction/chat and vector retrieva
 
 The example PDF is fictional and intentionally different from the prior employment-contract fixture. Uploads accept PDF only, up to 50 MB.
 
-## API flow
+## Deployed demo flow
 
-1. The browser creates a temporary anonymous session identifier scoped to the current tab (authentication is outside the MVP)
-2. `POST /api/documents/upload`: parse/OCR and index the uploaded PDF
-3. `POST /api/documents/:id/extract`: extract claims and verify page citations
-4. `GET /api/documents/:id`: retrieve source text and claims
-5. `POST /api/chat` and `POST /api/documents/:id/whatif`: gated document queries
-6. `GET /api/documents/:id/brief`: evidence-derived brief, statistics, and SHA-256 content digest
-7. Copy the memorandum or use the browser's Print / Export PDF action.
+1. The browser creates a temporary anonymous session identifier scoped to the current tab.
+2. PDF.js parses readable PDF text locally; the file is not uploaded.
+3. Deterministic mock logic extracts claims and attaches page citations.
+4. Browser-local Q&A and scenario analysis retrieve clauses from the parsed text.
+5. The browser generates an evidence brief, statistics, and SHA-256 content digest.
+6. Copy the memorandum or use the browser's Print / Export PDF action.
 
 Citation matching checks textual support, not legal validity. Independent legal-authority verification is not connected.
 
-CourtListener case-law research is available in the Analysis Workspace's Proof Intelligence panel. Set `COURTLISTENER_API_TOKEN` in the backend environment and restart. This search works even while document AI remains in demo mode. Results are research leads with source citations, not automatically verified law.
+External case-law research is intentionally disabled in the deployed mock so no search terms or document data leave the browser. The optional backend retains the CourtListener integration for future live use.
 
 ## Validation
 
