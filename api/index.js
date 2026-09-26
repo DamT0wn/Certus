@@ -3,10 +3,14 @@
 let connection;
 
 module.exports = async function handler(req, res) {
-  const missing = ["MONGODB_URI", "JWT_SECRET"].filter(
+  const path = (req.url || "").split("?")[0];
+  if (path === "/api" || path === "/api/" || path === "/api/health") {
+    return res.status(200).json({ status: "ok", mode: process.env.MOCK_MODE === "true" ? "mock" : "live" });
+  }
+
+  const missing = ["MONGODB_URI"].filter(
     (key) => !process.env[key] || /<|replace_with|your-|dev_secret/.test(process.env[key])
   );
-  const path = (req.url || "").split("?")[0];
   if (missing.length) {
     return res.status(503).json({
       error: "The service is not fully configured. Please contact the administrator.",
@@ -28,8 +32,6 @@ module.exports = async function handler(req, res) {
       }
       await connection;
     }
-    // Rewrites preserve the original URL; allow the function URL as a health alias.
-    if (path === "/api" || path === "/api/") req.url = "/api/health";
   } catch {
     return res.status(503).json({
       error: "The service is temporarily unavailable. Please retry later.",

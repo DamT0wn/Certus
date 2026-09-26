@@ -63,12 +63,6 @@ export function createRateLimiter(options: { windowMs: number; maxRequests: numb
 /**
  * Rate limiters configured for sensitive routes
  */
-export const demoSessionLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 30, // 30 requests per 15 mins per IP
-  message: "Too many demo sessions were requested. Please try again later.",
-});
-
 export const computeLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 20, // 20 expensive requests per minute

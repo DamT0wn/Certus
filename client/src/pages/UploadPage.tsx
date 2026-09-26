@@ -12,7 +12,7 @@ export function UploadPage() {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [dragOver, setDragOver] = useState(false);
 
-  const [demoToken, setDemoToken] = useState<string | null>(() => sessionStorage.getItem("certus_demo_token"));
+  const [demoToken, setDemoToken] = useState<string | null>(() => sessionStorage.getItem("certus_demo_session"));
   const [demoName, setDemoName] = useState<string>(() => sessionStorage.getItem("certus_demo_name") || "");
   const [sessionError, setSessionError] = useState<string>("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -39,10 +39,10 @@ export function UploadPage() {
     setSessionError("");
     setBusy(true);
     try {
-      const session = await createDemoSession();
-      sessionStorage.setItem("certus_demo_token", session.token);
+      const session = createDemoSession();
+      sessionStorage.setItem("certus_demo_session", session.sessionId);
       sessionStorage.setItem("certus_demo_name", session.displayName);
-      setDemoToken(session.token);
+      setDemoToken(session.sessionId);
       setDemoName(session.displayName);
     } catch (err: unknown) {
       setSessionError(apiError(err));
@@ -52,7 +52,7 @@ export function UploadPage() {
   }
 
   function handleEndDemo() {
-    sessionStorage.removeItem("certus_demo_token");
+    sessionStorage.removeItem("certus_demo_session");
     sessionStorage.removeItem("certus_demo_name");
     setDemoToken(null);
     setDemoName("");

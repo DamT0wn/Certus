@@ -10,7 +10,7 @@ Run `npm run dev` in each directory.
 
 - Frontend: http://127.0.0.1:5173
 - Backend: http://localhost:5000/api
-- Demo: set `MOCK_MODE=true`, configure a 32+ character `JWT_SECRET`, and use a placeholder `MONGODB_URI` to start an in-memory database. The UI issues a temporary mock session; it does not collect credentials or create accounts.
+- Demo: set `MOCK_MODE=true` and use a placeholder `MONGODB_URI` to start an in-memory database. Mock sign-in creates a tab-scoped random browser session locally, so it does not depend on an authentication service or server secret.
 - Live: set `MOCK_MODE=false` and supply the Google Document AI, Gemini, and MongoDB Atlas settings listed in the example file.
 
 Environment files and local credential folders are ignored. Never put API keys in VITE variables or commit credential JSON.
@@ -25,7 +25,7 @@ The example PDF is fictional and intentionally different from the prior employme
 
 ## API flow
 
-1. `POST /api/demo/session` creates a short-lived anonymous session (authentication is outside the MVP)
+1. The browser creates a temporary anonymous session identifier scoped to the current tab (authentication is outside the MVP)
 2. `POST /api/documents/upload`: parse/OCR and index the uploaded PDF
 3. `POST /api/documents/:id/extract`: extract claims and verify page citations
 4. `GET /api/documents/:id`: retrieve source text and claims

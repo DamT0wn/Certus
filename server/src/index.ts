@@ -15,7 +15,7 @@ async function start() {
     mongoUri.includes("<password>");
 
   if (process.env.MOCK_MODE !== "true") {
-    const required = ["MONGODB_URI", "JWT_SECRET", "GCP_PROJECT_ID", "DOCAI_PROCESSOR_ID", "GOOGLE_APPLICATION_CREDENTIALS", "GEMINI_API_KEY", "GEMINI_MODEL", "EMBEDDING_MODEL"];
+    const required = ["MONGODB_URI", "GCP_PROJECT_ID", "DOCAI_PROCESSOR_ID", "GOOGLE_APPLICATION_CREDENTIALS", "GEMINI_API_KEY", "GEMINI_MODEL", "EMBEDDING_MODEL"];
     const missing = required.filter(key => !process.env[key] || /your-|<|replace_with|dev_secret/.test(process.env[key]!));
     if (missing.length) throw new Error(`Live configuration required: ${missing.join(", ")}`);
   }

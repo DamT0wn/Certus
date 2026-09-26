@@ -16,8 +16,8 @@ export function apiError(error: unknown): string {
 }
 
 api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem("certus_demo_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const sessionId = sessionStorage.getItem("certus_demo_session");
+  if (sessionId) config.headers.Authorization = `Bearer ${sessionId}`;
   return config;
 });
 
@@ -73,9 +73,10 @@ export interface BriefData {
   disclaimer: string;
 }
 
-export async function createDemoSession() {
-  const { data } = await api.post("/demo/session");
-  return data as { token: string; displayName: string };
+export function createDemoSession() {
+  const randomBytes = crypto.getRandomValues(new Uint8Array(12));
+  const sessionId = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return { sessionId, displayName: `Demo ${sessionId.slice(-4).toUpperCase()}` };
 }
 
 export async function uploadDocument(file: File) {

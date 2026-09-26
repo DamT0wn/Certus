@@ -16,7 +16,7 @@
 
 | Component | Current behavior |
 | --- | --- |
-| Demo session and HTTP API | Temporary anonymous session token; no account, email, or password collection |
+| Demo session and HTTP API | Temporary random browser session ID; no account, email, password, JWT secret, or sign-in API dependency |
 | Database | In-memory MongoDB; not durable production storage |
 | PDF text | Actual uploaded PDF parsed with pdf-parse; no substituted contract |
 | Scanned PDF OCR | Requires configured Google Document AI; demo rejects PDFs without readable text |
@@ -36,7 +36,6 @@ Fill `server/.env.local` (or real deployment environment variables):
 
 - `MOCK_MODE=false`
 - `MONGODB_URI`: existing Atlas connection URI with a vector index named `embedding_index` on `chunks.embedding`, plus `documentId` as a filter. The vector index dimensions must match the selected embedding model's output.
-- `JWT_SECRET`: a strong random signing secret of at least 32 characters for temporary demo-session tokens.
 - `GCP_PROJECT_ID`, `GCP_LOCATION`, `DOCAI_PROCESSOR_ID`, `GOOGLE_APPLICATION_CREDENTIALS`: existing Document AI processor and credential-file path. Keep credential JSON inside ignored `server/credentials/` for local development.
 - `GEMINI_API_KEY`, `GEMINI_MODEL`, `EMBEDDING_MODEL`: enabled API key and available model identifiers for that account. Availability and live output dimensions remain to be verified.
 - `PORT`: optional; defaults to 5000.
@@ -63,4 +62,4 @@ A real customer document and configured cloud credentials are needed to validate
 
 ## CourtListener setup
 
-Set `COURTLISTENER_API_TOKEN` in the ignored `server/.env.local` or deployment environment. Restart the backend after changing it. `GET /api/research/cases?q=contract` requires a demo-session bearer token and forwards the user-entered query to CourtListener with server-side token authentication. This works independently of `MOCK_MODE`; uploaded contract text is not automatically sent. Results show up to ten cases with court, filing date, citations, excerpt, and canonical source link. Open Analysis Workspace → Proof Intel → US case-law research. `scripts/verify-courtlistener.cjs` tests the live browser flow and the rate-limit error state.
+Set `COURTLISTENER_API_TOKEN` in the ignored `server/.env.local` or deployment environment. Restart the backend after changing it. `GET /api/research/cases?q=contract` requires a random demo-session identifier and forwards the user-entered query to CourtListener with server-side provider authentication. This works independently of `MOCK_MODE`; uploaded contract text is not automatically sent. Results show up to ten cases with court, filing date, citations, excerpt, and canonical source link. Open Analysis Workspace → Proof Intel → US case-law research. `scripts/verify-courtlistener.cjs` tests the live browser flow and the rate-limit error state.

@@ -14,7 +14,11 @@ const assert = require('node:assert/strict');
     const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
     const page = await context.newPage();
     const errors = [];
+    const signInRequests = [];
     page.on('pageerror', err => errors.push(err.message));
+    page.on('request', request => {
+      if (request.url().includes('/api/demo/session')) signInRequests.push(request.url());
+    });
     await page.goto(`${webBase}/`);
     await page.getByRole('heading', { name: 'Mock sign-in for this demo' }).waitFor();
     const intakeAria = await page.locator('body').ariaSnapshot();
@@ -27,11 +31,13 @@ const assert = require('node:assert/strict');
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Continue with mock sign-in' }).click();
+    const token = await page.evaluate(() => sessionStorage.getItem('certus_demo_session'));
+    assert.match(token || '', /^[a-f0-9]{24}$/);
+    assert.equal(signInRequests.length, 0, 'Mock sign-in must not depend on the API');
     await page.getByRole('button', { name: 'Load Example PDF' }).click();
     await page.waitForURL(/\/document\/[a-f0-9]+$/, { timeout: 120000 });
     await page.getByText('Evidence Feed', { exact: true }).waitFor();
     const id = page.url().split('/').pop();
-    const token = await page.evaluate(() => sessionStorage.getItem('certus_demo_token'));
     const headers = { Authorization: `Bearer ${token}` };
     const doc = await (await context.request.get(`${apiBase}/documents/${id}`, { headers })).json();
     assert(doc.document.ocrText.includes('$7,500'));

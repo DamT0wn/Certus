@@ -1,8 +1,7 @@
 import { Router, RequestHandler } from "express";
 import multer from "multer";
 import { DemoSessionRequest, requireDemoSession } from "../middleware/demoSession";
-import { demoSessionLimiter, computeLimiter } from "../middleware/security";
-import { createDemoSession } from "../controllers/demoSessionController";
+import { computeLimiter } from "../middleware/security";
 import {
   uploadDocument,
   extractDocument,
@@ -27,9 +26,6 @@ const safe = (handler: RequestHandler): RequestHandler => (req, res, next) => {
 };
 
 router.get("/health", (_req, res) => res.json({ status: "ok", mode: process.env.MOCK_MODE === "true" ? "mock" : "live", timestamp: new Date().toISOString() }));
-
-// Authentication is outside the MVP. Issue an anonymous, isolated demo session.
-router.post("/demo/session", demoSessionLimiter, createDemoSession);
 
 // Explicit user-entered research terms only; no contract is sent to this provider.
 router.get("/research/cases", requireDemoSession, computeLimiter, safe(async (req, res) => {
