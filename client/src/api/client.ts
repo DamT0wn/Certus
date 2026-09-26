@@ -1,36 +1,6 @@
-import axios from "axios";
-import {
-  mockAskQuestion,
-  mockExtractDocument,
-  mockGetBrief,
-  mockGetDocument,
-  mockRunWhatIf,
-  mockSearchCaseLaw,
-  mockUploadDocument,
-} from "./browserMock";
-
-export const browserMockEnabled = import.meta.env.VITE_USE_BROWSER_MOCK !== "false";
-
-export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || "/api", timeout: 120000 });
-
 export function apiError(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    if (["SERVER_NOT_CONFIGURED", "DATABASE_UNAVAILABLE", "API_INITIALIZATION_FAILED"].includes(error.response?.data?.code)) {
-      return "The service is temporarily unavailable. Please try again later.";
-    }
-    const detail = error.response?.data?.error;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail.message === "string") return detail.message;
-    return error.code === "ECONNABORTED" ? "The request timed out. Please retry." : error.message;
-  }
   return error instanceof Error ? error.message : "Request failed. Please retry.";
 }
-
-api.interceptors.request.use((config) => {
-  const sessionId = sessionStorage.getItem("certus_demo_session");
-  if (sessionId) config.headers.Authorization = `Bearer ${sessionId}`;
-  return config;
-});
 
 export type ProofLabel = "DOCUMENT_FACT" | "VERIFIED_LAW" | "AI_INFERENCE" | "UNVERIFIED";
 
@@ -91,43 +61,33 @@ export function createDemoSession() {
 }
 
 export async function uploadDocument(file: File) {
-  if (browserMockEnabled) return mockUploadDocument(file);
-  const form = new FormData();
-  form.append("file", file);
-  const { data } = await api.post("/documents/upload", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data as { documentId: string; status: string; filename: string; pageCount: number };
+  const { mockUploadDocument } = await import("./browserMock");
+  return mockUploadDocument(file);
 }
 
 export async function extractDocument(documentId: string) {
-  if (browserMockEnabled) return mockExtractDocument(documentId);
-  const { data } = await api.post(`/documents/${documentId}/extract`);
-  return data.facts as Claim[];
+  const { mockExtractDocument } = await import("./browserMock");
+  return mockExtractDocument(documentId);
 }
 
 export async function getDocument(documentId: string) {
-  if (browserMockEnabled) return mockGetDocument(documentId);
-  const { data } = await api.get(`/documents/${documentId}`);
-  return data as { document: LegalDocumentData; facts: Claim[] };
+  const { mockGetDocument } = await import("./browserMock");
+  return mockGetDocument(documentId);
 }
 
 export async function askQuestion(documentId: string, question: string) {
-  if (browserMockEnabled) return mockAskQuestion(documentId, question);
-  const { data } = await api.post("/chat", { documentId, question });
-  return data.claims as Claim[];
+  const { mockAskQuestion } = await import("./browserMock");
+  return mockAskQuestion(documentId, question);
 }
 
 export async function runWhatIf(documentId: string, scenarioPrompt: string) {
-  if (browserMockEnabled) return mockRunWhatIf(documentId, scenarioPrompt);
-  const { data } = await api.post(`/documents/${documentId}/whatif`, { scenarioPrompt });
-  return data.claims as Claim[];
+  const { mockRunWhatIf } = await import("./browserMock");
+  return mockRunWhatIf(documentId, scenarioPrompt);
 }
 
 export async function getBrief(documentId: string) {
-  if (browserMockEnabled) return mockGetBrief(documentId);
-  const { data } = await api.get(`/documents/${documentId}/brief`);
-  return data.brief as BriefData;
+  const { mockGetBrief } = await import("./browserMock");
+  return mockGetBrief(documentId);
 }
 
 export interface CaseLawSearch {
@@ -139,7 +99,6 @@ export interface CaseLawSearch {
 }
 
 export async function searchCaseLaw(query: string): Promise<CaseLawSearch> {
-  if (browserMockEnabled) return mockSearchCaseLaw(query);
-  const { data } = await api.get("/research/cases", { params: { q: query }, timeout: 20000 });
-  return data;
+  const { mockSearchCaseLaw } = await import("./browserMock");
+  return mockSearchCaseLaw(query);
 }

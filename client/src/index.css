@@ -126,6 +126,8 @@ button:disabled { cursor: wait; opacity: .55; }
 
 .legal-document-sheet {
   background: #FFFFFF;
+  content-visibility: auto;
+  contain-intrinsic-size: 740px 980px;
   box-shadow: 0 1px 3px rgba(20, 23, 31, 0.04), 0 8px 24px -4px rgba(20, 23, 31, 0.05);
   border: 1px solid #E4E1D8;
   border-radius: 6px;

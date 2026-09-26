@@ -42,7 +42,7 @@ Fill `server/.env.local` (or real deployment environment variables):
 
 The backend loads `.env.local`, then `.env`, without overriding deployment environment variables. Live startup fails for missing/placeholder configuration or database connection failure instead of silently serving mocked data.
 
-Optional frontend configuration in `client/.env.local`: `VITE_USE_BROWSER_MOCK=false` enables the optional backend path; `VITE_API_BASE_URL` and `API_PROXY_TARGET` then select it. VITE variables are public: never put credentials there. The deployed default is the self-contained browser mock.
+The deployed frontend has no environment variables or runtime API dependency. The optional backend remains a separate development target and is not bundled into the browser demo.
 
 ## Verification
 

@@ -9,6 +9,7 @@ interface StoredMockDocument {
 
 const DOCUMENT_PREFIX = "certus_mock_document_";
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const documentCache = new Map<string, StoredMockDocument>();
 
 function randomId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
@@ -20,12 +21,17 @@ function storageKey(documentId: string): string {
 }
 
 function load(documentId: string): StoredMockDocument {
+  const cached = documentCache.get(documentId);
+  if (cached) return cached;
   const raw = sessionStorage.getItem(storageKey(documentId));
   if (!raw) throw new Error("This demo document is no longer available. Return to Intake and load it again.");
-  return JSON.parse(raw) as StoredMockDocument;
+  const record = JSON.parse(raw) as StoredMockDocument;
+  documentCache.set(documentId, record);
+  return record;
 }
 
 function save(record: StoredMockDocument): void {
+  documentCache.set(record.document._id, record);
   sessionStorage.setItem(storageKey(record.document._id), JSON.stringify(record));
 }
 
@@ -76,19 +82,24 @@ async function parsePdf(file: File): Promise<{ pageNumber: number; text: string 
   ]);
   GlobalWorkerOptions.workerSrc = workerModule.default;
   const pdf = await getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  const pages: { pageNumber: number; text: string }[] = [];
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
-      .join("")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/[ \t]{2,}/g, " ")
-      .trim();
-    pages.push({ pageNumber, text });
+  const pages = new Array<{ pageNumber: number; text: string }>(pdf.numPages);
+  let nextPageNumber = 1;
+  async function parseNextPage(): Promise<void> {
+    while (nextPageNumber <= pdf.numPages) {
+      const pageNumber = nextPageNumber;
+      nextPageNumber += 1;
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : ""))
+        .join("")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
+      pages[pageNumber - 1] = { pageNumber, text };
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(4, pdf.numPages) }, () => parseNextPage()));
 
   if (!pages.some((page) => page.text.length > 0)) {
     throw new Error("This PDF has no readable text. The self-contained demo does not perform scanned-document OCR.");
@@ -111,7 +122,6 @@ export async function mockUploadDocument(file: File) {
     mimeType: "application/pdf",
     mode: "mock",
     status: "ocr_done",
-    ocrText: ocrPages.map((page) => page.text).join("\n\n"),
     ocrPages,
     uploadedAt: new Date().toISOString(),
   };
@@ -141,17 +151,18 @@ export async function mockGetDocument(documentId: string) {
 
 function bestMatchingClaim(record: StoredMockDocument, prompt: string): Claim | null {
   const promptTokens = new Set(prompt.toLowerCase().match(/[a-z0-9$]+/g)?.filter((token) => token.length > 2) ?? []);
-  const candidates = (record.document.ocrPages ?? []).flatMap((page) =>
-    sentences(page.text).map((text) => {
+  let best: { text: string; pageNumber: number; score: number } | null = null;
+  for (const page of record.document.ocrPages ?? []) {
+    for (const text of sentences(page.text)) {
       const normalized = text.toLowerCase();
       const overlap = [...promptTokens].filter((token) => normalized.includes(token)).length;
       const intentBoost =
         (/pay|payment|fee|invoice|cost/.test(prompt.toLowerCase()) && /\$|pay|payment|fee|invoice/.test(normalized) ? 3 : 0) +
         (/terminat|notice|exit/.test(prompt.toLowerCase()) && /terminat|notice|exit/.test(normalized) ? 3 : 0);
-      return { text, pageNumber: page.pageNumber, score: overlap + intentBoost };
-    }),
-  );
-  const best = candidates.filter((candidate) => candidate.text.length >= 30).sort((a, b) => b.score - a.score)[0];
+      const candidate = { text, pageNumber: page.pageNumber, score: overlap + intentBoost };
+      if (text.length >= 30 && (!best || candidate.score > best.score)) best = candidate;
+    }
+  }
   return best && best.score > 0 ? claimFromSource(best.text, best.pageNumber) : null;
 }
 
