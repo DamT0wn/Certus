@@ -11,7 +11,7 @@ Run `npm run dev` in each directory.
 - Frontend: http://127.0.0.1:5173
 - Backend: http://localhost:5000/api
 - Deployed demo: fully self-contained browser mock. It requires no database, authentication service, API keys, or backend environment variables. Data stays in the current browser tab and is cleared when that tab closes.
-- The optional backend can still be developed independently, but it is not included in the deployed browser demo.
+- Live: set `MOCK_MODE=false` and supply the Google Document AI, Gemini, and MongoDB Atlas settings listed in the example file.
 
 Environment files and local credential folders are ignored. Never put API keys in VITE variables or commit credential JSON.
 

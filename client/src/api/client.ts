@@ -1,6 +1,36 @@
+import axios from "axios";
+import {
+  mockAskQuestion,
+  mockExtractDocument,
+  mockGetBrief,
+  mockGetDocument,
+  mockRunWhatIf,
+  mockSearchCaseLaw,
+  mockUploadDocument,
+} from "./browserMock";
+
+export const browserMockEnabled = import.meta.env.VITE_USE_BROWSER_MOCK !== "false";
+
+export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || "/api", timeout: 120000 });
+
 export function apiError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (["SERVER_NOT_CONFIGURED", "DATABASE_UNAVAILABLE", "API_INITIALIZATION_FAILED"].includes(error.response?.data?.code)) {
+      return "The service is temporarily unavailable. Please try again later.";
+    }
+    const detail = error.response?.data?.error;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return error.code === "ECONNABORTED" ? "The request timed out. Please retry." : error.message;
+  }
   return error instanceof Error ? error.message : "Request failed. Please retry.";
 }
+
+api.interceptors.request.use((config) => {
+  const sessionId = sessionStorage.getItem("certus_demo_session");
+  if (sessionId) config.headers.Authorization = `Bearer ${sessionId}`;
+  return config;
+});
 
 export type ProofLabel = "DOCUMENT_FACT" | "VERIFIED_LAW" | "AI_INFERENCE" | "UNVERIFIED";
 
@@ -61,33 +91,43 @@ export function createDemoSession() {
 }
 
 export async function uploadDocument(file: File) {
-  const { mockUploadDocument } = await import("./browserMock");
-  return mockUploadDocument(file);
+  if (browserMockEnabled) return mockUploadDocument(file);
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post("/documents/upload", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data as { documentId: string; status: string; filename: string; pageCount: number };
 }
 
 export async function extractDocument(documentId: string) {
-  const { mockExtractDocument } = await import("./browserMock");
-  return mockExtractDocument(documentId);
+  if (browserMockEnabled) return mockExtractDocument(documentId);
+  const { data } = await api.post(`/documents/${documentId}/extract`);
+  return data.facts as Claim[];
 }
 
 export async function getDocument(documentId: string) {
-  const { mockGetDocument } = await import("./browserMock");
-  return mockGetDocument(documentId);
+  if (browserMockEnabled) return mockGetDocument(documentId);
+  const { data } = await api.get(`/documents/${documentId}`);
+  return data as { document: LegalDocumentData; facts: Claim[] };
 }
 
 export async function askQuestion(documentId: string, question: string) {
-  const { mockAskQuestion } = await import("./browserMock");
-  return mockAskQuestion(documentId, question);
+  if (browserMockEnabled) return mockAskQuestion(documentId, question);
+  const { data } = await api.post("/chat", { documentId, question });
+  return data.claims as Claim[];
 }
 
 export async function runWhatIf(documentId: string, scenarioPrompt: string) {
-  const { mockRunWhatIf } = await import("./browserMock");
-  return mockRunWhatIf(documentId, scenarioPrompt);
+  if (browserMockEnabled) return mockRunWhatIf(documentId, scenarioPrompt);
+  const { data } = await api.post(`/documents/${documentId}/whatif`, { scenarioPrompt });
+  return data.claims as Claim[];
 }
 
 export async function getBrief(documentId: string) {
-  const { mockGetBrief } = await import("./browserMock");
-  return mockGetBrief(documentId);
+  if (browserMockEnabled) return mockGetBrief(documentId);
+  const { data } = await api.get(`/documents/${documentId}/brief`);
+  return data.brief as BriefData;
 }
 
 export interface CaseLawSearch {
@@ -99,6 +139,7 @@ export interface CaseLawSearch {
 }
 
 export async function searchCaseLaw(query: string): Promise<CaseLawSearch> {
-  const { mockSearchCaseLaw } = await import("./browserMock");
-  return mockSearchCaseLaw(query);
+  if (browserMockEnabled) return mockSearchCaseLaw(query);
+  const { data } = await api.get("/research/cases", { params: { q: query }, timeout: 20000 });
+  return data;
 }

@@ -40,9 +40,8 @@ const assert = require('node:assert/strict');
     await page.getByText('Evidence Feed', { exact: true }).waitFor();
     const id = page.url().split('/').pop();
     const doc = await page.evaluate(documentId => JSON.parse(sessionStorage.getItem(`certus_mock_document_${documentId}`)), id);
-    const parsedText = doc.document.ocrPages.map(pageData => pageData.text).join('\n\n');
-    assert(parsedText.includes('$7,500'));
-    assert(!parsedText.includes('Sarah Jenkins'));
+    assert(doc.document.ocrText.includes('$7,500'));
+    assert(!doc.document.ocrText.includes('Sarah Jenkins'));
     assert(doc.facts.length > 0);
     assert(doc.facts.every(f => f.sourcePage >= 1 && f.sourcePage <= 2));
     for (const width of [375, 768, 1440]) {
