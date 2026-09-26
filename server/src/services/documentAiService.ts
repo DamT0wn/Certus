@@ -1,4 +1,3 @@
-import { PDFParse } from "pdf-parse";
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 
 let docAiClient: DocumentProcessorServiceClient | null = null;
@@ -27,6 +26,7 @@ export interface OcrResult {
 export async function runOcr(fileBuffer: Buffer, mimeType: string): Promise<OcrResult> {
   // MOCK MODE — replace with real Google Cloud call when GCP credentials are ready
   if (process.env.MOCK_MODE === "true") {
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: new Uint8Array(fileBuffer) });
     try {
       const result = await parser.getText();
