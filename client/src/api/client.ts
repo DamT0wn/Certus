@@ -1,6 +1,11 @@
 import axios from "axios";
 
-export const api = axios.create({ baseURL: "/api" });
+export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || "/api", timeout: 120000 });
+
+export function apiError(error: unknown): string {
+  if (axios.isAxiosError(error)) return error.response?.data?.error || (error.code === "ECONNABORTED" ? "The request timed out. Please retry." : error.message);
+  return error instanceof Error ? error.message : "Request failed. Please retry.";
+}
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("certus_token");
@@ -25,6 +30,7 @@ export interface Claim {
 }
 
 export interface LegalDocumentData {
+  mode?: "mock" | "live";
   _id: string;
   ownerId: string;
   filename: string;
@@ -43,6 +49,8 @@ export interface BriefStats {
 }
 
 export interface BriefData {
+  contentHash: string;
+  mode: "mock" | "live";
   documentId: string;
   filename: string;
   generatedAt: string;
@@ -99,3 +107,14 @@ export async function getBrief(documentId: string) {
   return data.brief as BriefData;
 }
 
+export interface CaseLawSearch {
+  provider: "CourtListener";
+  query: string;
+  retrievedAt: string;
+  results: { id: number; caseName: string; court: string; dateFiled: string | null; citations: string[]; url: string; snippet: string; status: string }[];
+}
+
+export async function searchCaseLaw(query: string): Promise<CaseLawSearch> {
+  const { data } = await api.get("/research/cases", { params: { q: query }, timeout: 20000 });
+  return data;
+}

@@ -63,7 +63,7 @@ export function CertusLogo({
             <span className="font-serif-display font-semibold tracking-tight text-[#14171F] text-[18px] leading-none">
               CERTUS
             </span>
-            <span className="text-[9px] font-mono-legal font-semibold tracking-wider text-[#B08D57] bg-[#B08D57]/10 px-1.5 py-0.2 rounded border border-[#B08D57]/30 uppercase">
+            <span className="text-[9px] font-mono-legal font-semibold tracking-wider text-[var(--certus-brass-dark)] bg-[var(--certus-brass-light)] px-2 py-0.5 rounded-full border border-[var(--certus-brass-border)] uppercase">
               PROOFS
             </span>
           </div>

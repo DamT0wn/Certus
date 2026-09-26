@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -16,7 +16,7 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/certus";
+
 
 async function start() {
   let mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/certus";
@@ -25,7 +25,13 @@ async function start() {
     mongoUri.includes("<user>") ||
     mongoUri.includes("<password>");
 
-  if (isPlaceholderUri) {
+  if (process.env.MOCK_MODE !== "true") {
+    const required = ["MONGODB_URI", "JWT_SECRET", "GCP_PROJECT_ID", "DOCAI_PROCESSOR_ID", "GOOGLE_APPLICATION_CREDENTIALS", "GEMINI_API_KEY", "GEMINI_MODEL", "EMBEDDING_MODEL"];
+    const missing = required.filter(key => !process.env[key] || /your-|<|replace_with|dev_secret/.test(process.env[key]!));
+    if (missing.length) throw new Error(`Live configuration required: ${missing.join(", ")}`);
+  }
+
+  if (isPlaceholderUri && process.env.MOCK_MODE === "true") {
     // MOCK MODE — replace with real MongoDB Atlas URI in .env when Atlas is configured
     console.log("[certus] MOCK MODE: Placeholder MONGODB_URI detected. Starting in-memory MongoDB...");
     try {
@@ -55,18 +61,16 @@ async function start() {
         console.error("[certus] In-memory MongoDB fallback failed:", (fallbackErr as Error).message);
       }
     } else {
-      console.error(
-        "[certus] server will still start, but DB-backed routes will fail until MONGODB_URI is set correctly"
-      );
+      throw new Error("Database connection failed; server did not start");
     }
   }
 
   app.listen(PORT, () => {
     console.log(`[certus] server listening on port ${PORT}`);
     if (process.env.MOCK_MODE === "true") {
-      console.log("[certus] MOCK_MODE is ENABLED: Document AI, Gemini, and Atlas Vector Search are mocked.");
+      console.log("[certus] DEMO MODE: Real PDF text parsing; simulated AI and retrieval.");
     }
   });
 }
 
-start();
+start().catch(err => { console.error((err as Error).message); process.exitCode = 1; });

@@ -49,7 +49,7 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
               <div
                 className={`w-4.5 h-4.5 rounded-[3px] flex items-center justify-center shrink-0 ${
                   claim.sourceText
-                    ? "bg-[#F2F6F3] text-[#2F5233] border border-[#C2D6C6]"
+                    ? "bg-[var(--certus-forest-bg)] text-[var(--certus-forest)] border border-[var(--certus-forest-border)]"
                     : "bg-[#FAF9F6] text-[#868C98] border border-[#E4E1D8]"
                 }`}
               >
@@ -63,7 +63,7 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
                   01 · Document Evidence
                 </span>
                 {claim.sourcePage ? (
-                  <span className="text-[9.5px] font-mono-legal text-[#2F5233] bg-[#F2F6F3] px-1.5 py-0.2 rounded-[2px] border border-[#C2D6C6]">
+                  <span className="text-[9.5px] font-mono-legal text-[var(--certus-forest)] bg-[var(--certus-forest-bg)] px-1.5 py-0.2 rounded-[2px] border border-[var(--certus-forest-border)]">
                     Page {claim.sourcePage}
                   </span>
                 ) : (
@@ -87,9 +87,9 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
             <div className="flex flex-col items-center">
               <div
                 className={`w-4.5 h-4.5 rounded-[3px] flex items-center justify-center shrink-0 ${
-                  claim.verification?.verified !== false && !isUnverified
-                    ? "bg-[#F2F6F3] text-[#2F5233] border border-[#C2D6C6]"
-                    : "bg-[#F9F1F1] text-[#8C3A3A] border border-[#E4C3C3]"
+                  claim.verification?.verified === true && !isUnverified
+                    ? "bg-[var(--certus-forest-bg)] text-[var(--certus-forest)] border border-[var(--certus-forest-border)]"
+                    : "bg-[var(--certus-brick-bg)] text-[var(--certus-brick)] border border-[var(--certus-brick-border)]"
                 }`}
               >
                 <ShieldCheck className="w-2.5 h-2.5" />
@@ -103,23 +103,23 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
                 </span>
                 <span
                   className={`text-[9.5px] font-mono-legal font-semibold px-1.5 py-0.2 rounded-[2px] border ${
-                    claim.verification?.verified !== false && !isUnverified
-                      ? "bg-[#F2F6F3] text-[#2F5233] border-[#C2D6C6]"
-                      : "bg-[#F9F1F1] text-[#8C3A3A] border-[#E4C3C3]"
+                    claim.verification?.verified === true && !isUnverified
+                      ? "bg-[var(--certus-forest-bg)] text-[var(--certus-forest)] border-[var(--certus-forest-border)]"
+                      : "bg-[var(--certus-brick-bg)] text-[var(--certus-brick)] border-[var(--certus-brick-border)]"
                   }`}
                 >
-                  {claim.verification?.verified !== false && !isUnverified ? "PASSED (100% Grounded)" : "FAILED (Unmatched)"}
+                  {claim.verification?.verified === true && !isUnverified ? `PASSED · ${Math.round((claim.verification?.confidence ?? 0) * 100)}% match score` : "FAILED (Unmatched)"}
                 </span>
               </div>
               <p className="mt-0.5 text-[11px] text-[#525866]">
                 {claim.verification?.reason ||
                   (isFact
-                    ? "Exact substring match confirmed in document OCR stream."
+                    ? "Citation passed lexical matching against the source text."
                     : isLaw
                     ? "General legal authority — verified independent doctrine."
                     : isUnverified
                     ? "Citation check failed: source text not found verbatim in contract."
-                    : "Text grounded in contractual provision with verified semantic match.")}
+                    : "Citation passed lexical matching; interpretation requires review.")}
               </p>
             </div>
           </div>
@@ -137,12 +137,10 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
                 <span className="text-[9.5px] font-mono-legal font-semibold text-[#868C98] uppercase tracking-wider">
                   03 · Legal Authority
                 </span>
-                <span className="text-[9.5px] text-[#B08D57] font-mono-legal">Delaware Law</span>
+                <span className="text-[9.5px] text-[#B08D57] font-mono-legal">Not independently checked</span>
               </div>
               <p className="mt-0.5 text-[11px] text-[#525866]">
-                {isLaw
-                  ? "Delaware jurisprudence requires reasonable duration and geographic bounds for covenant enforcement."
-                  : "Contract interpretation under objective plain meaning doctrine."}
+                No external legal authority has been independently verified by this pipeline.
               </p>
             </div>
           </div>
@@ -150,7 +148,7 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
           {/* Step 4: AI Inference / Reasoning */}
           <div className="flex items-start gap-2.5 relative">
             <div className="flex flex-col items-center">
-              <div className="w-4.5 h-4.5 rounded-[3px] bg-[#FBF7F0] text-[#8A6D3B] border border-[#E5D5B8] flex items-center justify-center shrink-0">
+              <div className="w-4.5 h-4.5 rounded-[3px] bg-[var(--certus-ochre-bg)] text-[var(--certus-ochre)] border border-[var(--certus-ochre-border)] flex items-center justify-center shrink-0">
                 <Cpu className="w-2.5 h-2.5" />
               </div>
               <div className="w-px h-6 bg-[#E4E1D8] my-0.5" />
@@ -160,7 +158,7 @@ export function ProofChain({ claim, defaultExpanded = false }: ProofChainProps) 
                 <span className="text-[9.5px] font-mono-legal font-semibold text-[#868C98] uppercase tracking-wider">
                   04 · Reasoned Inference
                 </span>
-                <span className="text-[9.5px] text-[#8A6D3B] font-mono-legal">Structured Output</span>
+                <span className="text-[9.5px] text-[var(--certus-ochre)] font-mono-legal">Structured Output</span>
               </div>
               <p className="mt-0.5 text-[11px] text-[#2A2F3D]">
                 {claim.text}

@@ -4,6 +4,7 @@ import { AuthedRequest } from "../middleware/auth";
 import { LegalDocument, ChatSession } from "../models";
 import { retrieveRelevantChunks } from "../services/vectorSearchService";
 import { answerQuestionWithCitations } from "../services/geminiService";
+import { verifyDocumentPages } from "../services/documentEvidence";
 
 export async function askQuestion(req: AuthedRequest, res: Response) {
   const { documentId, question } = req.body;
@@ -37,7 +38,7 @@ export async function askQuestion(req: AuthedRequest, res: Response) {
     });
   }
 
-  const claims = await answerQuestionWithCitations(question.trim(), relevantChunks, doc.ocrText);
+  const claims = verifyDocumentPages(await answerQuestionWithCitations(question.trim(), relevantChunks, doc.ocrText), doc.ocrPages);
 
   let session = await ChatSession.findOne({ documentId: doc._id });
   if (!session) session = await ChatSession.create({ documentId: doc._id, messages: [] });
@@ -74,4 +75,3 @@ export async function getChatHistory(req: AuthedRequest, res: Response) {
   const session = await ChatSession.findOne({ documentId: doc._id }).lean();
   return res.json({ messages: session?.messages || [] });
 }
-

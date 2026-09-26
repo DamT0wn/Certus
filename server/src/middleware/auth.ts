@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { jwtSecret } from "../config";
 
 export interface AuthedRequest extends Request {
   userId?: string;
@@ -12,7 +13,7 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   }
   const token = header.slice("Bearer ".length);
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || "dev_secret") as { userId: string };
+    const payload = jwt.verify(token, jwtSecret()) as { userId: string };
     req.userId = payload.userId;
     next();
   } catch {

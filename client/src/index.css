@@ -6,7 +6,7 @@
     --certus-surface: #FFFFFF;
     --certus-ink: #14171F;
     --certus-secondary: #525866;
-    --certus-muted: #868C98;
+    --certus-muted: #687080;
     --certus-border: #E4E1D8;
     --certus-border-subtle: #EDEAE2;
     
@@ -17,7 +17,7 @@
     
     /* Signature Brass / Gold */
     --certus-brass: #B08D57;
-    --certus-brass-dark: #91703E;
+    --certus-brass-dark: #8A6936;
     --certus-brass-light: #F8F4EC;
     --certus-brass-border: #E5D7BF;
     
@@ -26,9 +26,9 @@
     --certus-forest-bg: #F2F6F3;
     --certus-forest-border: #C2D6C6;
     
-    --certus-law: #1F3B23;
-    --certus-law-bg: #EEF4EF;
-    --certus-law-border: #B4CEBA;
+    --certus-law: var(--certus-forest);
+    --certus-law-bg: var(--certus-forest-bg);
+    --certus-law-border: var(--certus-forest-border);
     
     --certus-ochre: #8A6D3B;
     --certus-ochre-bg: #FBF7F0;
@@ -49,6 +49,38 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: 'tnum' 1;
   }
+}
+
+/* WCAG AA text equivalents for legacy arbitrary-color utility classes. */
+.text-\[\#868C98\] { color: #687080; }
+.text-\[\#B08D57\] { color: #8A6936; }
+
+.lucide { stroke-width: 1.75; flex-shrink: 0; }
+button { touch-action: manipulation; }
+button:disabled { cursor: wait; opacity: .55; }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--certus-brass-dark);
+  outline-offset: 3px;
+}
+.evidence-legend > * + * { border-left: 1px solid var(--certus-border); }
+.workspace-toolbar, .viewer-toolbar, .brief-toolbar { flex-wrap: wrap; height: auto; min-height: 3rem; gap: .75rem; padding-block: .75rem; }
+.viewer-toolbar > * { min-width: 0; flex-wrap: wrap; }
+.legal-document-sheet { max-width: 100%; flex-shrink: 0; overflow-wrap: anywhere; }
+@media (max-width: 1279px) {
+  .app-header { height: auto; min-height: 4rem; flex-wrap: wrap; gap: .75rem; padding: .75rem 1rem; }
+}
+@media (max-width: 639px) {
+  .evidence-legend { grid-template-columns: 1fr; }
+  .evidence-legend > * + * { border-left: 0; border-top: 1px solid var(--certus-border); }
+  .workspace-toolbar { padding-inline: .75rem; }
+  .workspace-toolbar > *, .brief-toolbar > * { flex-wrap: wrap; min-width: 0; gap: .5rem; }
+  .workspace-toolbar > :last-child { width: 100%; justify-content: space-between; }
+  .legal-document-sheet { padding: 1.25rem; padding-bottom: 5rem; }
+  .legal-document-sheet > :first-child { flex-wrap: wrap; gap: .5rem; }
+  .memo-sheet { padding: 1.25rem; }
+  .memo-sheet .justify-between { flex-wrap: wrap; gap: .5rem; }
+  .intake-footer, .sample-row, .auth-form { flex-direction: column; align-items: stretch; gap: .75rem; }
+  .auth-form input { width: 100%; min-width: 0; }
 }
 
 /* Typography Utility Classes */
@@ -202,6 +234,11 @@
 
 /* Print Rules for Typeset Legal Memorandum */
 @media print {
+  @page { size: A4; margin: 14mm; }
+  .memo-sheet { padding: 0 !important; }
+  .memo-sheet .space-y-4 > div, .memo-sheet .space-y-3 > div { break-inside: avoid; }
+  .memo-sheet h2 { break-after: avoid; }
+  .memo-sheet p, .memo-sheet blockquote { orphans: 3; widows: 3; }
   body {
     background: #FFFFFF !important;
     color: #000000 !important;

@@ -24,7 +24,6 @@ export function CommandPalette({
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
-      setSelectedIndex(0);
     }
   }, [isOpen]);
 

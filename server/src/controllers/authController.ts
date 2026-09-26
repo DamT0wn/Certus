@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models";
+import { jwtSecret } from "../config";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function signToken(userId: string) {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || "dev_secret", { expiresIn: "7d" });
+  return jwt.sign({ userId }, jwtSecret(), { expiresIn: "7d" });
 }
 
 export async function register(req: Request, res: Response) {
@@ -59,4 +60,3 @@ export async function login(req: Request, res: Response) {
     user: { id: user._id, email: user.email },
   });
 }
-

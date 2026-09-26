@@ -42,7 +42,7 @@ export function AppHeader({
 
       <header
         role="banner"
-        className="h-16 bg-[#FFFFFF] border-b border-[#E4E1D8] px-6 flex items-center justify-between z-30 shrink-0 select-none"
+        className="app-header h-16 bg-[#FFFFFF] border-b border-[#E4E1D8] px-6 flex items-center justify-between z-30 shrink-0 select-none"
       >
         {/* LEFT: Certus Logo & Subtitle */}
         <div className="flex items-center gap-8">
@@ -58,7 +58,7 @@ export function AppHeader({
           <nav
             role="navigation"
             aria-label="Main Navigation"
-            className="hidden md:flex items-center gap-6 text-[13px] font-sans-ui h-16"
+            className="hidden xl:flex items-center gap-6 text-[13px] font-sans-ui h-16"
           >
 
           <Link
@@ -140,9 +140,9 @@ export function AppHeader({
           <div
             onMouseEnter={() => setShowTrustTooltip(true)}
             onMouseLeave={() => setShowTrustTooltip(false)}
-            className="flex items-center gap-1.5 bg-[#FAF9F6] text-[#2F5233] border border-[#C2D6C6] px-2.5 py-1 rounded-[4px] text-xs font-mono-legal font-medium cursor-help transition-certus"
+            className="flex items-center gap-1.5 bg-[#FAF9F6] text-[var(--certus-forest)] border border-[var(--certus-forest-border)] px-2.5 py-1 rounded-[4px] text-xs font-mono-legal font-medium cursor-help transition-certus"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2F5233]" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-forest)]" />
             <span className="hidden sm:inline uppercase tracking-wider text-[10.5px]">Proof Mode Active</span>
             <span className="sm:hidden text-[10.5px]">GATED</span>
           </div>
@@ -154,7 +154,7 @@ export function AppHeader({
                 <span>Deterministic Citation Gate</span>
               </div>
               <p className="text-[11.5px] text-[#E8E6DF] leading-relaxed">
-                Claims are deterministically gated against source contract OCR tokens. Unsupported statements are automatically downgraded to <strong className="text-[#E4C3C3]">UNVERIFIED</strong>.
+                Claims are deterministically gated against source contract OCR tokens. Unsupported statements are automatically downgraded to <strong className="text-[var(--certus-brick-border)]">UNVERIFIED</strong>.
               </p>
             </div>
           )}
@@ -199,7 +199,7 @@ export function AppHeader({
                       setShowUserMenu(false);
                       onLogout();
                     }}
-                    className="w-full text-left px-3.5 py-2 text-[#8C3A3A] hover:bg-[#F9F1F1] flex items-center gap-2 transition-certus"
+                    className="w-full text-left px-3.5 py-2 text-[var(--certus-brick)] hover:bg-[var(--certus-brick-bg)] flex items-center gap-2 transition-certus"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>
@@ -221,4 +221,3 @@ export function AppHeader({
     </>
   );
 }
-

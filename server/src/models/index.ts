@@ -30,6 +30,7 @@ export const User = mongoose.model<IUser>("User", userSchema);
 
 /** ---------- Document ---------- */
 export interface ILegalDocument extends MongoDocument {
+  mode: "mock" | "live";
   ownerId: Types.ObjectId;
   filename: string;
   mimeType: string;
@@ -40,6 +41,7 @@ export interface ILegalDocument extends MongoDocument {
 }
 
 const legalDocumentSchema = new Schema<ILegalDocument>({
+  mode: { type: String, enum: ["mock", "live"], default: "mock" },
   ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   filename: { type: String, required: true },
   mimeType: { type: String, required: true },
@@ -192,4 +194,3 @@ const auditLogSchema = new Schema<IAuditLog>({
 auditLogSchema.index({ documentId: 1, timestamp: -1 });
 
 export const AuditLog = mongoose.model<IAuditLog>("AuditLog", auditLogSchema);
-

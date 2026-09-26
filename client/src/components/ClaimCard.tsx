@@ -55,18 +55,18 @@ export function ClaimCard({
           {claim.verification?.verified && !isUnverified && (
             <span
               title="Verified by deterministic citation gate"
-              className="inline-flex items-center text-[10px] font-mono-legal text-[#2F5233] bg-[#2F5233]/[0.06] px-1.5 py-0.5 rounded-[3px] border border-[#2F5233]/30"
+              className="inline-flex items-center text-[10px] font-mono-legal text-[var(--certus-forest)] bg-[var(--certus-forest)]/[0.06] px-1.5 py-0.5 rounded-[3px] border border-[var(--certus-forest)]/30"
             >
-              <ShieldCheck className="w-2.5 h-2.5 mr-1 text-[#2F5233]" />
+              <ShieldCheck className="w-2.5 h-2.5 mr-1 text-[var(--certus-forest)]" />
               Verified
             </span>
           )}
           {isUnverified && (
             <span
               title="Citation gate rejected: statement could not be grounded in source text"
-              className="inline-flex items-center text-[10px] font-mono-legal text-[#8C3A3A] bg-[#8C3A3A]/[0.06] px-1.5 py-0.5 rounded-[3px] border border-[#8C3A3A]/30"
+              className="inline-flex items-center text-[10px] font-mono-legal text-[var(--certus-brick)] bg-[var(--certus-brick)]/[0.06] px-1.5 py-0.5 rounded-[3px] border border-[var(--certus-brick)]/30"
             >
-              <AlertCircle className="w-2.5 h-2.5 mr-1 text-[#8C3A3A]" />
+              <AlertCircle className="w-2.5 h-2.5 mr-1 text-[var(--certus-brick)]" />
               Gate Reject
             </span>
           )}
@@ -110,8 +110,8 @@ export function ClaimCard({
           </blockquote>
         </div>
       ) : isLaw ? (
-        <div className="mt-2 text-[11px] font-serif-legal italic text-[#1F3B23] bg-[#EEF4EF] p-2 rounded-[4px] border border-[#B4CEBA]">
-          Rule of Law: Established Delaware corporate jurisprudence (non-contractual doctrine).
+        <div className="mt-2 text-[11px] font-serif-legal italic text-[var(--certus-law)] bg-[var(--certus-law-bg)] p-2 rounded-[4px] border border-[var(--certus-law-border)]">
+          External legal authority requires an independently checked source.
         </div>
       ) : null}
 

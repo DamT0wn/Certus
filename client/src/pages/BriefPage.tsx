@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getBrief } from "../api/client";
+import { getBrief, apiError } from "../api/client";
 import type { Claim, BriefData } from "../api/client";
 import { AppHeader } from "../components/AppHeader";
 import { ProofBadge } from "../components/ProofLabelChip";
@@ -19,14 +19,15 @@ export function BriefPage() {
   const { id } = useParams<{ id: string }>();
   const [brief, setBrief] = useState<BriefData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
 
   useEffect(() => {
     if (!id) return;
-    getBrief(id).then(setBrief);
+    getBrief(id).then(setBrief).catch(err => setError(apiError(err)));
   }, [id]);
 
-  const handleCopyMarkdown = () => {
+  const handleCopyMarkdown = async () => {
     if (!brief) return;
     const text = `# CERTUS LEGAL INTELLIGENCE MEMORANDUM
 Document: ${brief.filename}
@@ -34,7 +35,7 @@ Generated: ${new Date(brief.generatedAt).toLocaleString()}
 Classification: CONFIDENTIAL ATTORNEY WORK PRODUCT
 
 ## 01 · EXECUTIVE SUMMARY & SYNOPSIS
-This memorandum provides a citation-gated audit of ${brief.filename}. All factual propositions have been verified against raw source text.
+This memorandum provides a citation-gated audit of ${brief.filename}. ${brief.stats.verifiedCount} of ${brief.stats.totalClaims} claims passed the citation gate. ${brief.stats.flaggedCount} claims require review. Mode: ${brief.mode}.\nContent SHA-256: ${brief.contentHash}
 
 ## 02 · MATERIAL VERIFIED FACTS
 ${brief.verifiedFacts?.map((f: Claim, i: number) => `${i + 1}. ${f.text} [Page ${f.sourcePage || "N/A"}]\n   "${f.sourceText || ""}"`).join("\n\n")}
@@ -48,8 +49,8 @@ ${brief.flaggedInferences?.map((inf: Claim, i: number) => `${i + 1}. ${inf.text}
 ## 05 · CITATION GATE ALERTS & UNVERIFIED CLAIMS
 ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason: ${q.verification?.reason || "Ungrounded in source text"})`).join("\n")}
 `;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
+    try { await navigator.clipboard.writeText(text); setCopied(true); }
+    catch { setError("Clipboard access failed. Use Print / Export PDF instead."); }
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -63,11 +64,12 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
               <FileText className="w-5 h-5" />
             </div>
             <h3 className="font-serif-display font-semibold text-[#14171F] text-sm mb-1">
-              Typesetting Legal Memorandum...
+              {error ? "Brief unavailable" : "Typesetting Legal Memorandum…"}
             </h3>
             <p className="text-xs text-[#525866] leading-relaxed">
-              Aggregating verified citations, governing authorities, and flagged inferences into formal legal brief format.
+              {error || "Aggregating citations and review flags…"}
             </p>
+            {error && <button className="mt-4 underline" onClick={() => window.location.reload()}>Retry</button>}
           </div>
         </div>
       </div>
@@ -89,7 +91,7 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
 
       {/* Action Toolbar Header (hidden in print) */}
       <div className="print:hidden sticky top-0 z-20 bg-[#FFFFFF]/95 backdrop-blur-xs border-b border-[#E4E1D8] px-6 py-3 shadow-2xs">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="brief-toolbar max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               to={`/document/${id}`}
@@ -109,7 +111,7 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
               onClick={handleCopyMarkdown}
               className="inline-flex items-center gap-1.5 text-xs font-sans-ui font-medium text-[#525866] hover:text-[#14171F] bg-[#FAF9F6] hover:bg-[#FFFFFF] border border-[#E4E1D8] hover:border-[#B08D57] px-3 py-1.5 rounded-[4px] transition-certus shadow-2xs"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-[#2F5233]" /> : <Copy className="w-3.5 h-3.5 text-[#868C98]" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-[var(--certus-forest)]" /> : <Copy className="w-3.5 h-3.5 text-[#868C98]" />}
               <span>{copied ? "Copied Markdown" : "Copy Memo"}</span>
             </button>
 
@@ -124,9 +126,10 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
         </div>
       </div>
 
+      {error && <p role="alert" className="p-3 text-[var(--certus-brick)]">{error}</p>}
       {/* Main Editorial Memorandum Document Sheet (Typeset Legal Document) */}
       <main className="max-w-4xl mx-auto w-full p-6 sm:p-10 my-6 print:my-0 print:p-0 flex-1">
-        <div className="bg-[#FFFFFF] rounded-[6px] print:rounded-none shadow-sm print:shadow-none border border-[#E4E1D8] print:border-none p-10 sm:p-16 transition-certus">
+        <div className="memo-sheet bg-[#FFFFFF] rounded-[6px] print:rounded-none shadow-sm print:shadow-none border border-[#E4E1D8] print:border-none p-10 sm:p-16 transition-certus">
           {/* Formal Letterhead-Style Memorandum Header */}
           <div className="border-b-2 border-[#1B2A4A] pb-8 mb-8">
             <div className="flex items-center justify-between text-xs font-mono-legal text-[#868C98] mb-6">
@@ -173,17 +176,17 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 <span className="text-[9.5px] font-mono-legal font-bold text-[#868C98] uppercase tracking-wider block">
                   VERIFICATION
                 </span>
-                <span className="font-mono-legal text-[#2F5233] text-[12px] font-medium block mt-0.5 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#2F5233]" />
-                  Deterministic Gate (100%)
+                <span className="font-mono-legal text-[var(--certus-forest)] text-[12px] font-medium block mt-0.5 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[var(--certus-forest)]" />
+                  Citation pass rate: {brief.stats.verificationRate}%
                 </span>
               </div>
               <div>
                 <span className="text-[9.5px] font-mono-legal font-bold text-[#868C98] uppercase tracking-wider block">
-                  GOVERNING LAW
+                  PAGES REVIEWED
                 </span>
                 <span className="font-serif-legal text-[#14171F] text-[13px] block mt-0.5">
-                  State of Delaware
+                  {brief.pageCount}
                 </span>
               </div>
             </div>
@@ -198,11 +201,8 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
             </div>
             <div className="bg-[#FAF9F6] border border-[#E4E1D8] rounded-[4px] p-5 text-[14.5px] leading-[1.75] text-[#14171F] font-serif-legal">
               This memorandum audits the material terms of <strong className="font-semibold text-[#14171F]">{brief.filename}</strong>. 
-              The contract establishes an executive employment relationship providing an initial base salary of $240,000, 
-              coupled with a 12-month post-termination non-competition restriction throughout North America. 
-              Termination without Cause triggers six months of base salary continuation as severance, while voluntary resignation 
-              strictly requires sixty (60) days advance written notice on penalty of immediate bonus and unvested option forfeiture. 
-              All statements herein have been deterministically audited against source document tokens.
+              {" "}{brief.stats.totalClaims} claims were extracted; {brief.stats.verifiedCount} passed as document facts or independently verified law, and {brief.stats.flaggedCount} require review. Citation matching checks textual support, not legal validity.
+              {brief.mode === "mock" && <strong className="block mt-2">Demo analysis — AI responses are simulated.</strong>}
             </div>
           </div>
 
@@ -212,8 +212,8 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
               <h2 className="text-[11px] font-mono-legal font-semibold uppercase tracking-wider text-[#868C98]">
                 02 · MATERIAL VERIFIED FACTS ({brief.verifiedFacts?.length || 0})
               </h2>
-              <span className="text-[10px] font-mono-legal text-[#2F5233] bg-[#F2F6F3] px-2 py-0.5 rounded-[2px] border border-[#C2D6C6]">
-                100% Citation Grounded
+              <span className="text-[10px] font-mono-legal text-[var(--certus-forest)] bg-[var(--certus-forest-bg)] px-2 py-0.5 rounded-[2px] border border-[var(--certus-forest-border)]">
+                {brief.verifiedFacts.length} citation-gated facts
               </span>
             </div>
 
@@ -258,8 +258,8 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 <h2 className="text-[11px] font-mono-legal font-semibold uppercase tracking-wider text-[#868C98]">
                   03 · APPLICABLE GOVERNING LAW &amp; CANONS ({brief.applicableLaw.length})
                 </h2>
-                <span className="text-[10px] font-mono-legal text-[#1F3B23] bg-[#EEF4EF] px-2 py-0.5 rounded-[2px] border border-[#B4CEBA]">
-                  Delaware Jurisprudence
+                <span className="text-[10px] font-mono-legal text-[var(--certus-law)] bg-[var(--certus-law-bg)] px-2 py-0.5 rounded-[2px] border border-[var(--certus-law-border)]">
+                  Legal authority
                 </span>
               </div>
 
@@ -267,12 +267,12 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 {brief.applicableLaw.map((law: Claim, idx: number) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-[4px] border border-[#B4CEBA] bg-[#EEF4EF]/40"
+                    className="p-4 rounded-[4px] border border-[var(--certus-law-border)] bg-[var(--certus-law-bg)]/40"
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <Scale className="w-3.5 h-3.5 text-[#1F3B23]" />
+                      <Scale className="w-3.5 h-3.5 text-[var(--certus-law)]" />
                       <ProofBadge label="VERIFIED_LAW" size="sm" />
-                      <span className="text-[10px] font-mono-legal text-[#1F3B23]">Common Law Authority</span>
+                      <span className="text-[10px] font-mono-legal text-[var(--certus-law)]">Common Law Authority</span>
                     </div>
                     <p className="text-[14px] font-serif-legal text-[#14171F] leading-relaxed">
                       {law.text}
@@ -290,7 +290,7 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 <h2 className="text-[11px] font-mono-legal font-semibold uppercase tracking-wider text-[#868C98]">
                   04 · FLAGGED INFERENCES &amp; EXPOSURE ANALYSIS ({brief.flaggedInferences.length})
                 </h2>
-                <span className="text-[10px] font-mono-legal text-[#8A6D3B] bg-[#FBF7F0] px-2 py-0.5 rounded-[2px] border border-[#E5D5B8]">
+                <span className="text-[10px] font-mono-legal text-[var(--certus-ochre)] bg-[var(--certus-ochre-bg)] px-2 py-0.5 rounded-[2px] border border-[var(--certus-ochre-border)]">
                   Attorney Review Recommended
                 </span>
               </div>
@@ -299,12 +299,12 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 {brief.flaggedInferences.map((inf: Claim, idx: number) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-[4px] border border-[#E5D5B8] bg-[#FBF7F0]/40"
+                    className="p-4 rounded-[4px] border border-[var(--certus-ochre-border)] bg-[var(--certus-ochre-bg)]/40"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <ProofBadge label="AI_INFERENCE" size="sm" />
                       {inf.sourcePage && (
-                        <span className="text-[10.5px] font-mono-legal text-[#8A6D3B]">
+                        <span className="text-[10.5px] font-mono-legal text-[var(--certus-ochre)]">
                           Related Clause: Page {inf.sourcePage}
                         </span>
                       )}
@@ -313,7 +313,7 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                       {inf.text}
                     </p>
                     {inf.sourceText && (
-                      <p className="text-[12.5px] font-serif-legal italic text-[#525866] bg-[#FFFFFF] p-2 rounded-[3px] border border-[#E5D5B8]">
+                      <p className="text-[12.5px] font-serif-legal italic text-[#525866] bg-[#FFFFFF] p-2 rounded-[3px] border border-[var(--certus-ochre-border)]">
                         Grounding sentence: "{inf.sourceText}"
                       </p>
                     )}
@@ -330,7 +330,7 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 <h2 className="text-[11px] font-mono-legal font-semibold uppercase tracking-wider text-[#868C98]">
                   05 · CITATION GATE ALERTS &amp; UNVERIFIED CLAIMS ({brief.openQuestions.length})
                 </h2>
-                <span className="text-[10px] font-mono-legal text-[#8C3A3A] bg-[#F9F1F1] px-2 py-0.5 rounded-[2px] border border-[#E4C3C3]">
+                <span className="text-[10px] font-mono-legal text-[var(--certus-brick)] bg-[var(--certus-brick-bg)] px-2 py-0.5 rounded-[2px] border border-[var(--certus-brick-border)]">
                   Verification Gate Rejection
                 </span>
               </div>
@@ -339,21 +339,21 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
                 {brief.openQuestions.map((unv: Claim, idx: number) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-[4px] border-2 border-[#E4C3C3] bg-[#F9F1F1]/30"
+                    className="p-4 rounded-[4px] border-2 border-[var(--certus-brick-border)] bg-[var(--certus-brick-bg)]/30"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-[#8C3A3A]" />
+                        <AlertCircle className="w-3.5 h-3.5 text-[var(--certus-brick)]" />
                         <ProofBadge label="UNVERIFIED" size="sm" />
                       </div>
-                      <span className="text-[10px] font-mono-legal text-[#8C3A3A] font-semibold">
+                      <span className="text-[10px] font-mono-legal text-[var(--certus-brick)] font-semibold">
                         UNGROUNDED STATEMENT
                       </span>
                     </div>
                     <p className="text-[14px] font-serif-legal text-[#14171F] mb-2 font-medium">
                       {unv.text}
                     </p>
-                    <p className="text-xs font-sans-ui text-[#8C3A3A] bg-[#FFFFFF] p-2 rounded-[3px] border border-[#E4C3C3]">
+                    <p className="text-xs font-sans-ui text-[var(--certus-brick)] bg-[#FFFFFF] p-2 rounded-[3px] border border-[var(--certus-brick-border)]">
                       <strong>Audit Gate Note:</strong> {unv.verification?.reason || "This proposition could not be verified in the source text. Automatically gated as unverified."}
                     </p>
                   </div>
@@ -374,10 +374,10 @@ ${brief.openQuestions?.map((q: Claim, i: number) => `${i + 1}. ${q.text} (Reason
               </span>
               <span>All contractual assertions gated against OCR token registry.</span>
             </div>
-            <div className="text-left sm:text-right">
-              <span>HASH: 0x811C9DC5_SHA256 · DELAWARE FORUM</span>
+            <div className="text-left sm:text-right max-w-full sm:max-w-[45%] break-all">
+              <span>Content SHA-256: {brief.contentHash}</span>
               <span className="block text-[#868C98]">
-                VERIFIED: {brief.stats?.verifiedCount ?? 0} · FLAGGED: {brief.stats?.flaggedCount ?? 0} · RATE: {brief.stats?.verificationRate ?? 100}%
+                VERIFIED: {brief.stats?.verifiedCount ?? 0} · FLAGGED: {brief.stats?.flaggedCount ?? 0} · RATE: {brief.stats?.verificationRate ?? 0}%
               </span>
             </div>
           </div>

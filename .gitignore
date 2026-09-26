@@ -6,4 +6,8 @@ dist/
 build/
 *.log
 .DS_Store
-
+.npm-cache/
+tmp/
+output/
+server/*service-account*.json
+server/credentials/

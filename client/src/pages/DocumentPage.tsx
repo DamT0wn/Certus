@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { askQuestion, getDocument, runWhatIf } from "../api/client";
+import { askQuestion, getDocument, runWhatIf, apiError } from "../api/client";
 import type { Claim, LegalDocumentData } from "../api/client";
 import { AppHeader } from "../components/AppHeader";
 import { DocumentViewer } from "../components/DocumentViewer";
@@ -24,6 +24,8 @@ export function DocumentPage() {
 
   const [thread, setThread] = useState<{ question: string; claims: Claim[] }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [documentLoading, setDocumentLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Active navigation & view state
   const [activePage, setActivePage] = useState<number>(1);
@@ -51,8 +53,8 @@ export function DocumentPage() {
         }
       })
       .catch((err) => {
-        console.error("Failed to load document:", err);
-      });
+        setError(apiError(err));
+      }).finally(() => setDocumentLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -76,7 +78,8 @@ export function DocumentPage() {
   }, [id, navigate]);
 
   async function handleAsk(questionText: string) {
-    if (!id || !questionText.trim()) return;
+    if (!id || !questionText.trim() || loading) return;
+    setError("");
     setLoading(true);
     try {
       const claims = await askQuestion(id, questionText);
@@ -85,13 +88,16 @@ export function DocumentPage() {
         setActivePage(claims[0].sourcePage);
         setSelectedClaim(claims[0]);
       }
+    } catch (err) {
+      setError(apiError(err));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleScenario(prompt: string, label: string) {
-    if (!id) return;
+    if (!id || loading) return;
+    setError("");
     setLoading(true);
     try {
       const claims = await runWhatIf(id, prompt);
@@ -100,6 +106,8 @@ export function DocumentPage() {
         setActivePage(claims[0].sourcePage);
         setSelectedClaim(claims[0]);
       }
+    } catch (err) {
+      setError(apiError(err));
     } finally {
       setLoading(false);
     }
@@ -142,7 +150,10 @@ export function DocumentPage() {
       />
 
       {/* Workspace Context Bar */}
-      <div className="h-12 bg-[#FFFFFF] border-b border-[#E4E1D8] px-6 flex items-center justify-between shrink-0 z-20">
+      {docInfo?.mode === "mock" && <div className="px-4 py-1 text-[10px] font-mono-legal text-[var(--certus-ochre)] bg-[var(--certus-ochre-bg)]">DEMO ANALYSIS · Actual PDF text; simulated AI and retrieval.</div>}
+      {error && <div role="alert" className="p-3 text-sm text-[var(--certus-brick)]">{error} <button onClick={() => window.location.reload()}>Reload</button></div>}
+      {documentLoading && <div role="status" className="p-3 text-sm">Loading document and evidence…</div>}
+      <div className="workspace-toolbar bg-[#FFFFFF] border-b border-[#E4E1D8] px-6 flex items-center justify-between shrink-0 z-20">
         {/* Left: Document Identity & Metrics Pill */}
         <div className="flex items-center gap-3">
           <Link
@@ -157,19 +168,19 @@ export function DocumentPage() {
 
           <div className="flex items-center gap-2">
             <span className="font-serif-display font-semibold text-[#14171F] text-[14px] tracking-tight truncate max-w-xs sm:max-w-sm">
-              {docInfo?.filename || "Executive_Employment_Agreement.pdf"}
+              {docInfo?.filename || "Document"}
             </span>
 
             {/* Document Metrics Pill */}
             <div className="hidden md:flex items-center gap-2 bg-[#FAF9F6] px-2.5 py-0.5 rounded-[4px] border border-[#E4E1D8] text-[11px] font-mono-legal text-[#525866]">
-              <span className="flex items-center gap-1 text-[#2F5233] font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2F5233]" />
+              <span className="flex items-center gap-1 text-[var(--certus-forest)] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-forest)]" />
                 {facts.length} Claims
               </span>
               <span>·</span>
-              <span className="text-[#525866]">3 Issues</span>
+              <span className="text-[#525866]">{inferenceCount} Inferences</span>
               <span>·</span>
-              <span className="text-[#8C3A3A] font-semibold">{unverifiedCount} Review Flags</span>
+              <span className="text-[var(--certus-brick)] font-semibold">{unverifiedCount} Review Flags</span>
             </div>
           </div>
         </div>
@@ -259,7 +270,7 @@ export function DocumentPage() {
               onClick={() => setFilterType("DOCUMENT_FACT")}
               className={`px-2 py-1 rounded-[3px] transition-certus shrink-0 uppercase tracking-wider ${
                 filterType === "DOCUMENT_FACT"
-                  ? "bg-[#2F5233]/10 text-[#2F5233] font-bold border border-[#2F5233]/40"
+                  ? "bg-[var(--certus-forest)]/10 text-[var(--certus-forest)] font-bold border border-[var(--certus-forest)]/40"
                   : "text-[#525866] hover:bg-[#FAF9F6]"
               }`}
             >
@@ -269,7 +280,7 @@ export function DocumentPage() {
               onClick={() => setFilterType("VERIFIED_LAW")}
               className={`px-2 py-1 rounded-[3px] transition-certus shrink-0 uppercase tracking-wider ${
                 filterType === "VERIFIED_LAW"
-                  ? "bg-[#1F3B23]/10 text-[#1F3B23] font-bold border border-[#1F3B23]/40"
+                  ? "bg-[var(--certus-law)]/10 text-[var(--certus-law)] font-bold border border-[var(--certus-law)]/40"
                   : "text-[#525866] hover:bg-[#FAF9F6]"
               }`}
             >
@@ -279,7 +290,7 @@ export function DocumentPage() {
               onClick={() => setFilterType("AI_INFERENCE")}
               className={`px-2 py-1 rounded-[3px] transition-certus shrink-0 uppercase tracking-wider ${
                 filterType === "AI_INFERENCE"
-                  ? "bg-[#8A6D3B]/10 text-[#8A6D3B] font-bold border border-[#8A6D3B]/40"
+                  ? "bg-[var(--certus-ochre)]/10 text-[var(--certus-ochre)] font-bold border border-[var(--certus-ochre)]/40"
                   : "text-[#525866] hover:bg-[#FAF9F6]"
               }`}
             >
@@ -289,7 +300,7 @@ export function DocumentPage() {
               onClick={() => setFilterType("UNVERIFIED")}
               className={`px-2 py-1 rounded-[3px] transition-certus shrink-0 uppercase tracking-wider ${
                 filterType === "UNVERIFIED"
-                  ? "bg-[#8C3A3A]/10 text-[#8C3A3A] font-bold border border-[#8C3A3A]/40"
+                  ? "bg-[var(--certus-brick)]/10 text-[var(--certus-brick)] font-bold border border-[var(--certus-brick)]/40"
                   : "text-[#525866] hover:bg-[#FAF9F6]"
               }`}
             >
@@ -325,7 +336,7 @@ export function DocumentPage() {
           } lg:flex flex-col flex-1 overflow-hidden`}
         >
           <DocumentViewer
-            filename={docInfo?.filename || "Executive_Employment_Agreement.pdf"}
+            filename={docInfo?.filename || "Document"}
             ocrPages={docInfo?.ocrPages || []}
             activePage={activePage}
             selectedClaim={selectedClaim}

@@ -94,7 +94,7 @@ describe("Pipeline & Epistemic Honesty Verification Gate (Problem Statement Alig
     expect(typeof gated[0].verification.reason).toBe("string");
   });
 
-  test("VERIFIED_LAW external doctrine is preserved even without document quote", () => {
+  test("external doctrine without independently verified authority is UNVERIFIED", () => {
     const rawClaims: RawClaim[] = [
       {
         text: "Under standard contract doctrine, notice of default must clearly specify the provision breached.",
@@ -107,7 +107,8 @@ describe("Pipeline & Epistemic Honesty Verification Gate (Problem Statement Alig
     const gated = gateClaims(rawClaims, CONTRACT_TEXT);
 
     expect(gated.length).toBe(1);
-    expect(gated[0].label).toBe("VERIFIED_LAW");
-    expect(gated[0].verification.verified).toBe(true);
+    expect(gated[0].label).toBe("UNVERIFIED");
+    expect(gated[0].verification.verified).toBe(false);
+    expect(gated[0].verification.confidence).toBe(0);
   });
 });

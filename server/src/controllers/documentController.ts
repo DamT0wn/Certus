@@ -6,6 +6,8 @@ import { runOcr } from "../services/documentAiService";
 import { extractFactsFromDocument, runWhatIfScenario } from "../services/geminiService";
 import { chunkAndEmbedDocument } from "../services/vectorSearchService";
 import { validateUploadedPdf, sanitizeFilename } from "../middleware/security";
+import { verifyDocumentPages, evidenceHash } from "../services/documentEvidence";
+import { externalFailure } from "../services/externalServiceError";
 
 export async function uploadDocument(req: AuthedRequest, res: Response) {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -26,6 +28,7 @@ export async function uploadDocument(req: AuthedRequest, res: Response) {
     filename: safeFilename,
     mimeType: req.file.mimetype || "application/pdf",
     status: "ocr_processing",
+    mode: process.env.MOCK_MODE === "true" ? "mock" : "live",
   });
 
   try {
@@ -46,7 +49,8 @@ export async function uploadDocument(req: AuthedRequest, res: Response) {
   } catch (err) {
     doc.status = "failed";
     await doc.save();
-    return res.status(502).json({ error: "OCR processing failed", detail: (err as Error).message });
+    const failure = externalFailure(err, "Document OCR");
+    return res.status(failure.status).json({ error: failure.message, code: failure.code });
   }
 }
 
@@ -63,7 +67,8 @@ export async function extractDocument(req: AuthedRequest, res: Response) {
   await doc.save();
 
   try {
-    const verifiedClaims = await extractFactsFromDocument(doc.ocrText);
+    const pagedText = doc.ocrPages.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n");
+    const verifiedClaims = verifyDocumentPages(await extractFactsFromDocument(pagedText), doc.ocrPages);
 
     // Clean existing facts if re-extracting to avoid duplicates
     await ExtractedFact.deleteMany({ documentId: doc._id });
@@ -86,7 +91,8 @@ export async function extractDocument(req: AuthedRequest, res: Response) {
   } catch (err) {
     doc.status = "failed";
     await doc.save();
-    return res.status(502).json({ error: "Extraction failed", detail: (err as Error).message });
+    const failure = externalFailure(err, "Claim extraction");
+    return res.status(failure.status).json({ error: failure.message, code: failure.code });
   }
 }
 
@@ -100,7 +106,9 @@ export async function getDocument(req: AuthedRequest, res: Response) {
   if (!doc) return res.status(404).json({ error: "Document not found" });
 
   const facts = await ExtractedFact.find({ documentId: doc._id }).lean();
-  return res.json({ document: doc, facts });
+  return res.json({ document: doc, facts: facts.map(f => f.label === "VERIFIED_LAW" ? {
+    ...f, label: "UNVERIFIED", verification: { verified: false, confidence: 0, reason: "External legal authority has not been independently verified" },
+  } : f) });
 }
 
 export async function whatIf(req: AuthedRequest, res: Response) {
@@ -118,10 +126,12 @@ export async function whatIf(req: AuthedRequest, res: Response) {
   if (!doc) return res.status(404).json({ error: "Document not found" });
 
   try {
-    const claims = await runWhatIfScenario(scenarioPrompt.trim(), doc.ocrText);
+    const pagedText = doc.ocrPages.map(p => `[Page ${p.pageNumber}]\n${p.text}`).join("\n\n");
+    const claims = verifyDocumentPages(await runWhatIfScenario(scenarioPrompt.trim(), pagedText), doc.ocrPages);
     return res.json({ claims });
   } catch (err) {
-    return res.status(502).json({ error: "What-if analysis failed", detail: (err as Error).message });
+    const failure = externalFailure(err, "Scenario analysis");
+    return res.status(failure.status).json({ error: failure.message, code: failure.code });
   }
 }
 
@@ -136,16 +146,20 @@ export async function getBrief(req: AuthedRequest, res: Response) {
 
   const facts = await ExtractedFact.find({ documentId: doc._id }).lean();
 
-  const verifiedFacts = facts.filter((f) => f.label === "DOCUMENT_FACT");
-  const applicableLaw = facts.filter((f) => f.label === "VERIFIED_LAW");
+  if (doc.status !== "ready") return res.status(409).json({ error: "Document analysis is not ready. Complete extraction first." });
+  const verifiedFacts = facts.filter((f) => f.label === "DOCUMENT_FACT" && f.verification?.verified);
+  // No external authority provider is configured. Never bless legacy law claims.
+  const applicableLaw: typeof facts = [];
   const flaggedInferences = facts.filter((f) => f.label === "AI_INFERENCE");
-  const openQuestions = facts.filter((f) => f.label === "UNVERIFIED");
+  const openQuestions = facts.filter((f) => f.label === "UNVERIFIED" || f.label === "VERIFIED_LAW" || (f.label === "DOCUMENT_FACT" && !f.verification?.verified)).map(f => ({ ...f, label: "UNVERIFIED" }));
 
   const totalFacts = facts.length;
   const verifiedCount = verifiedFacts.length + applicableLaw.length;
-  const verificationRate = totalFacts > 0 ? Math.round((verifiedCount / totalFacts) * 100) : 100;
+  const verificationRate = totalFacts > 0 ? Math.round((verifiedCount / totalFacts) * 100) : 0;
 
   const brief = {
+    mode: doc.mode || "mock",
+    contentHash: evidenceHash(doc.ocrText, facts.map(f => ({ text: f.text, label: f.label, sourceText: f.sourceText, sourcePage: f.sourcePage, verification: f.verification }))),
     documentId: doc._id,
     filename: doc.filename,
     generatedAt: new Date(),
@@ -166,4 +180,3 @@ export async function getBrief(req: AuthedRequest, res: Response) {
 
   return res.json({ brief });
 }
-

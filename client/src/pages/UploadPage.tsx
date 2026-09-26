@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { uploadDocument, extractDocument, register, login } from "../api/client";
+import { uploadDocument, extractDocument, register, login, api, apiError } from "../api/client";
 import { AppHeader } from "../components/AppHeader";
 import { CommandPalette } from "../components/CommandPalette";
 import { KeyboardShortcutsModal } from "../components/KeyboardShortcutsModal";
@@ -12,10 +12,10 @@ export function UploadPage() {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [dragOver, setDragOver] = useState(false);
 
-  const [authToken, setAuthToken] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [authEmail, setAuthEmail] = useState("demo@certus.legal");
-  const [authPassword, setAuthPassword] = useState("password123");
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem("certus_token"));
+  const [userEmail, setUserEmail] = useState<string>(() => localStorage.getItem("certus_email") || "");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState<string>("");
   const [showCustomAuth, setShowCustomAuth] = useState(false);
@@ -23,26 +23,17 @@ export function UploadPage() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
   const navigate = useNavigate();
+  const [mockMode, setMockMode] = useState(false);
+  useEffect(() => { api.get("/health").then(({data}) => setMockMode(data.mode === "mock")).catch(err => setAuthError(apiError(err))); }, []);
 
   const UPLOAD_STEPS = [
-    { title: "Uploading Document", desc: "Secure transmission & artifact registration" },
-    { title: "Document AI OCR Parsing", desc: "Structured multi-page tokenization" },
-    { title: "Extracting Material Claims", desc: "Identifying obligations, terms & conditions" },
-    { title: "Citation Gate Verification", desc: "Deterministic verification against source text" },
-    { title: "Building Proof Graph", desc: "Grounding facts, legal doctrine & inferences" },
+    { title: "Upload & Parse Document", desc: "Read pages and index source text" },
+    { title: "Extract & Verify Claims", desc: "Check citations against the referenced pages" },
   ];
-
-  useEffect(() => {
-    const token = localStorage.getItem("certus_token");
-    const email = localStorage.getItem("certus_email");
-    if (token) {
-      setAuthToken(token);
-      if (email) setUserEmail(email);
-    }
-  }, []);
 
   async function handleAuthSubmit(e: FormEvent) {
     e.preventDefault();
+    setCurrentStepIndex(-1);
     setAuthError("");
     setBusy(true);
     try {
@@ -58,19 +49,6 @@ export function UploadPage() {
       setUserEmail(authEmail);
       setShowCustomAuth(false);
     } catch (err: any) {
-      if (authMode === "login" && err?.response?.status === 401 && authEmail === "demo@certus.legal") {
-        try {
-          const regToken = await register(authEmail, authPassword);
-          localStorage.setItem("certus_token", regToken);
-          localStorage.setItem("certus_email", authEmail);
-          setAuthToken(regToken);
-          setUserEmail(authEmail);
-          setShowCustomAuth(false);
-          return;
-        } catch {
-          // ignore fallback
-        }
-      }
       setAuthError(err?.response?.data?.error || err.message || "Authentication failed");
     } finally {
       setBusy(false);
@@ -78,11 +56,12 @@ export function UploadPage() {
   }
 
   async function handleQuickDemoAuth() {
+    setCurrentStepIndex(-1);
     setAuthError("");
     setBusy(true);
     try {
-      const email = `attorney_${Date.now().toString().slice(-4)}@certus.legal`;
-      const pwd = "DemoPassword123!";
+      const email = `demo_${crypto.randomUUID()}@certus.invalid`;
+      const pwd = crypto.randomUUID();
       const token = await register(email, pwd);
       localStorage.setItem("certus_token", token);
       localStorage.setItem("certus_email", email);
@@ -104,20 +83,24 @@ export function UploadPage() {
 
   async function ensureAuthenticated(): Promise<boolean> {
     if (localStorage.getItem("certus_token")) return true;
+    if (!mockMode) { setShowCustomAuth(true); setAuthError("Sign in or register before uploading a document."); return false; }
     try {
-      const email = `counsel_${Date.now().toString().slice(-4)}@certus.legal`;
-      const token = await register(email, "DemoPass123!");
+      const email = `counsel_${crypto.randomUUID()}@certus.legal`;
+      const token = await register(email, crypto.randomUUID());
       localStorage.setItem("certus_token", token);
       localStorage.setItem("certus_email", email);
       setAuthToken(token);
       setUserEmail(email);
       return true;
     } catch {
+      setAuthError("Could not create a demo session. Please retry.");
       return false;
     }
   }
 
   async function handleFile(file: File) {
+    if (busy) return;
+    setAuthError("");
     setBusy(true);
     setCurrentStepIndex(0);
     setStatusMessage(`Transmitting "${file.name}"...`);
@@ -129,21 +112,12 @@ export function UploadPage() {
         return;
       }
 
-      setCurrentStepIndex(1);
-      setStatusMessage("Reading document pages via Document AI OCR...");
+      setStatusMessage(mockMode ? "Reading PDF text and indexing pages…" : "Uploading and reading pages via Document AI OCR…");
       const { documentId } = await uploadDocument(file);
 
-      setCurrentStepIndex(2);
-      setStatusMessage("Extracting material obligations & legal claims...");
-      await new Promise((r) => setTimeout(r, 350));
-
-      setCurrentStepIndex(3);
-      setStatusMessage("Running deterministic citation gate...");
+      setCurrentStepIndex(1);
+      setStatusMessage("Extracting claims and checking their citations…");
       await extractDocument(documentId);
-
-      setCurrentStepIndex(4);
-      setStatusMessage("Constructing Proof Graph & readying workspace...");
-      await new Promise((r) => setTimeout(r, 350));
 
       navigate(`/document/${documentId}`);
     } catch (err: any) {
@@ -153,18 +127,16 @@ export function UploadPage() {
     }
   }
 
-  function handleUploadSample() {
-    const sampleText = `%PDF-1.4 Mock Header
-EXECUTIVE EMPLOYMENT AGREEMENT
-Between Apex Global Technologies Inc. and Sarah Jenkins
-Page 1: Position: Vice President of Engineering. Base Salary: $240,000. Discretionary Bonus: 25%.
-Page 2: Confidentiality and 12-month Non-Competition in North America.
-Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware governing law.`;
-
-    const sampleFile = new File([sampleText], "Executive_Employment_Agreement.pdf", {
-      type: "application/pdf",
-    });
-    handleFile(sampleFile);
+  async function handleUploadSample() {
+    if (busy) return;
+    setBusy(true);
+    setCurrentStepIndex(0);
+    setStatusMessage("Loading example PDF…");
+    try {
+      const response = await fetch("/sample-contract.pdf");
+      if (!response.ok) throw new Error("Sample document could not be loaded.");
+      await handleFile(new File([await response.blob()], "sample-contract.pdf", { type: "application/pdf" }));
+    } catch (err) { setAuthError(apiError(err)); setBusy(false); }
   }
 
   return (
@@ -176,17 +148,17 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
         authToken={authToken}
         userEmail={userEmail}
         onLogout={handleLogout}
-        onQuickDemoAuth={handleQuickDemoAuth}
+        onQuickDemoAuth={mockMode && !busy ? handleQuickDemoAuth : undefined}
       />
 
       {/* Main Intake Body */}
-      <main className="max-w-4xl mx-auto w-full px-6 py-14 flex-1 flex flex-col justify-center">
+      <main id="main-content" className="max-w-4xl mx-auto w-full px-6 py-14 flex-1 flex flex-col justify-center">
         {/* Editorial Subdued Hero */}
         <div className="text-center mb-10">
           {/* Smaller, quieter mono-style tag */}
           <div className="inline-flex items-center gap-2 bg-[#FAF9F6] border border-[#E4E1D8] px-2.5 py-1 rounded-[4px] text-[10.5px] font-mono-legal text-[#525866] mb-5 select-none">
             <span className="w-1.5 h-1.5 rounded-full bg-[#B08D57]" />
-            <span className="uppercase tracking-wider">Deterministic Citation Gate Active · Zero Hallucinations</span>
+            <span className="uppercase tracking-wider">Citation Gate Active · {mockMode ? "Demo analysis" : "Document evidence"}</span>
           </div>
 
           {/* Headline in serif display font with brass accent */}
@@ -201,7 +173,9 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
 
         {/* Refined Document Intake Panel */}
         <div className="max-w-xl mx-auto w-full bg-[#FFFFFF] rounded-[6px] p-6 shadow-xs border border-[#E4E1D8] transition-certus">
-          {busy ? (
+          {authError && <p role="alert" className="mb-4 text-sm text-[var(--certus-brick)]">{authError}</p>}
+          {!busy && statusMessage.startsWith("Error:") && <p role="alert" className="mb-4 text-sm text-[var(--certus-brick)]">{statusMessage}</p>}
+          {busy && currentStepIndex < 0 ? <p role="status">Signing in…</p> : busy ? (
             /* Multi-step intelligent progress indicator */
             <div className="py-6 px-4 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#EDEAE2]">
@@ -231,7 +205,7 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
                       <div
                         className={`w-4.5 h-4.5 rounded-[3px] flex items-center justify-center shrink-0 text-[10px] font-mono-legal font-bold ${
                           isDone
-                            ? "bg-[#2F5233] text-[#FAF9F6]"
+                            ? "bg-[var(--certus-forest)] text-[#FAF9F6]"
                             : isCurrent
                             ? "bg-[#1B2A4A] text-[#B08D57] animate-pulse"
                             : "bg-[#FAF9F6] text-[#868C98] border border-[#E4E1D8]"
@@ -278,7 +252,7 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
               >
                 <input
                   type="file"
-                  accept="application/pdf,image/*,text/*"
+                  accept="application/pdf"
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
                 />
@@ -296,7 +270,7 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
                   {dragOver ? "Release to analyze document" : "Drop legal agreement or browse workstation files"}
                 </p>
                 <p className="text-xs text-[#868C98] mb-4 font-sans-ui">
-                  Supported formats: PDF · DOCX · scanned agreements
+                  Supported format: PDF (up to 50 MB)
                 </p>
 
                 <span className="inline-block text-xs font-semibold bg-[#1B2A4A] hover:bg-[#111B30] text-[#FAF9F6] px-4 py-2 rounded-[5px] transition-certus shadow-2xs">
@@ -305,14 +279,14 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
               </label>
 
               {/* Sample Document Quick Starter */}
-              <div className="mt-4 pt-3.5 border-t border-[#EDEAE2] flex items-center justify-between text-xs">
+              <div className="sample-row mt-4 pt-3.5 border-t border-[#EDEAE2] flex items-center justify-between text-xs">
                 <span className="text-[#525866]">Need a demonstration agreement?</span>
                 <button
                   onClick={handleUploadSample}
                   className="font-medium text-[#14171F] hover:text-[#B08D57] bg-[#FAF9F6] hover:bg-[#FFFFFF] border border-[#E4E1D8] hover:border-[#B08D57] px-3 py-1.5 rounded-[5px] transition-certus flex items-center gap-1.5 shadow-2xs"
                 >
                   <FileText className="w-3.5 h-3.5 text-[#B08D57]" />
-                  <span>Load Sample Contract (PDF)</span>
+                  <span>Load Example PDF</span>
                 </button>
               </div>
             </div>
@@ -327,11 +301,11 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
             </span>
           </div>
 
-          <div className="bg-[#FFFFFF] rounded-[6px] border border-[#E4E1D8] shadow-2xs grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#E4E1D8] overflow-hidden">
+          <div className="bg-[#FFFFFF] rounded-[6px] border border-[#E4E1D8] shadow-2xs evidence-legend grid grid-cols-4 overflow-hidden">
             <div className="p-3 text-left">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2F5233]" />
-                <span className="font-mono-legal font-semibold text-[10px] text-[#2F5233] tracking-wider uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-forest)]" />
+                <span className="font-mono-legal font-semibold text-[10px] text-[var(--certus-forest)] tracking-wider uppercase">
                   DOCUMENT FACT
                 </span>
               </div>
@@ -342,8 +316,8 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
 
             <div className="p-3 text-left">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1F3B23]" />
-                <span className="font-mono-legal font-semibold text-[10px] text-[#1F3B23] tracking-wider uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-law)]" />
+                <span className="font-mono-legal font-semibold text-[10px] text-[var(--certus-law)] tracking-wider uppercase">
                   VERIFIED LAW
                 </span>
               </div>
@@ -354,8 +328,8 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
 
             <div className="p-3 text-left">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#8A6D3B]" />
-                <span className="font-mono-legal font-semibold text-[10px] text-[#8A6D3B] tracking-wider uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-ochre)]" />
+                <span className="font-mono-legal font-semibold text-[10px] text-[var(--certus-ochre)] tracking-wider uppercase">
                   AI INFERENCE
                 </span>
               </div>
@@ -366,8 +340,8 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
 
             <div className="p-3 text-left">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#8C3A3A]" />
-                <span className="font-mono-legal font-semibold text-[10px] text-[#8C3A3A] tracking-wider uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--certus-brick)]" />
+                <span className="font-mono-legal font-semibold text-[10px] text-[var(--certus-brick)] tracking-wider uppercase">
                   UNVERIFIED
                 </span>
               </div>
@@ -405,8 +379,8 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
                     {authMode === "login" ? "Need an account? Register" : "Have an account? Sign In"}
                   </button>
                 </div>
-                {authError && <p className="text-[#8C3A3A] mb-2 font-medium">{authError}</p>}
-                <form onSubmit={handleAuthSubmit} className="flex gap-2">
+                {authError && <p className="text-[var(--certus-brick)] mb-2 font-medium">{authError}</p>}
+                <form onSubmit={handleAuthSubmit} className="auth-form flex gap-2">
                   <input
                     type="email"
                     placeholder="counsel@firm.com"
@@ -439,7 +413,7 @@ Page 3: Termination: 60-day notice of resignation. 6 months severance. Delaware 
 
       {/* Subdued Professional Footer */}
       <footer className="py-4 border-t border-[#E4E1D8] bg-[#FFFFFF] text-[11px] text-[#868C98] select-none font-sans-ui">
-        <div className="max-w-4xl mx-auto px-6 flex items-center justify-between">
+        <div className="intake-footer max-w-4xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-serif-display font-semibold text-[#14171F]">Certus</span>
             <span>·</span>
